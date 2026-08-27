@@ -33,3 +33,5 @@ google-services.json
 
 # Android Profiling
 *.hprof
+# Large local animal database
+public/database/
