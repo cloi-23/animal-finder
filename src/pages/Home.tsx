@@ -18,6 +18,7 @@ import {
   searchAnimals,
   Animal,
   getDistribution,
+  getAnimalByTaxonId,
 } from "../database/animalDatabase";
 
 import "./Home.css";
@@ -39,6 +40,7 @@ const Home: React.FC = () => {
   const [predictionConfidence, setPredictionConfidence] = useState<
     number | null
   >(null);
+  const [identifiedAnimal, setIdentifiedAnimal] = useState<Animal | null>(null);
 
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [identifying, setIdentifying] = useState(false);
@@ -84,6 +86,7 @@ const Home: React.FC = () => {
     setError("");
     setPrediction(null);
     setPredictionConfidence(null);
+    setIdentifiedAnimal(null);
     setIdentifying(true);
 
     const imageUrl = URL.createObjectURL(file);
@@ -105,6 +108,9 @@ const Home: React.FC = () => {
 
       console.log("Animal AI RESULT:", JSON.stringify(result, null, 2));
       setPrediction(`${result.category} — ${result.name}`);
+      if (result.taxonId !== null) {
+        setIdentifiedAnimal(await getAnimalByTaxonId(result.taxonId));
+      }
       setPredictionConfidence(
         typeof result.confidence === "number" ? result.confidence : null,
       );
@@ -252,6 +258,15 @@ const Home: React.FC = () => {
 
               {predictionConfidence !== null && (
                 <p>Confidence: {Math.round(predictionConfidence * 100)}%</p>
+              )}
+
+              {identifiedAnimal && (
+                <IonButton
+                  fill="outline"
+                  onClick={() => navigate(`/animal/${identifiedAnimal.id}`)}
+                >
+                  Open database record
+                </IonButton>
               )}
             </div>
           )}

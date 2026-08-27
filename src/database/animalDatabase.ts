@@ -227,3 +227,18 @@ export async function getAnimalById(id: number): Promise<Animal | null> {
     extinct: Number(row[11] ?? 0),
   };
 }
+
+export async function getAnimalByTaxonId(
+  taxonId: number,
+): Promise<Animal | null> {
+  const database = await loadDatabase();
+
+  const result = database.exec(
+    `SELECT id FROM species WHERE taxon_id = $taxonId LIMIT 1`,
+    { $taxonId: taxonId },
+  );
+
+  if (!result.length || !result[0].values.length) return null;
+
+  return getAnimalById(Number(result[0].values[0][0]));
+}

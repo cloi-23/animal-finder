@@ -2,7 +2,9 @@ import { registerPlugin } from "@capacitor/core";
 
 export interface AnimalPrediction {
   classId: number;
+  taxonId: number | null;
   name: string;
+  label: string;
   confidence: number;
 }
 
@@ -25,6 +27,7 @@ export interface AnimalModelInfo {
 
 export interface AnimalClassifyResult {
   classId: number;
+  taxonId: number | null;
   name: string;
   category: string;
   confidence: number;
@@ -39,6 +42,8 @@ export interface AnimalAiPlugin {
     name: string;
     confidence: number;
     classId: number;
+    taxonId: number | null;
+    predictions: AnimalPrediction[];
   }>;
 }
 

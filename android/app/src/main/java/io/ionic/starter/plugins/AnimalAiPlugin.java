@@ -21,16 +21,18 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @CapacitorPlugin(name = "AnimalAI")
 public class AnimalAiPlugin extends Plugin {
 
-    private static final int IMAGE_SIZE = 224;
-    private static final int CLASS_COUNT = 1000;
+    private static final String MODEL_PATH = "camera/inat_vision.tflite";
 
     private Interpreter interpreter;
     private final List<String> labels = new ArrayList<>();
+    private final Map<Integer, Integer> taxonIds = new HashMap<>();
 
     @PluginMethod
     public void modelInfo(PluginCall call) {
@@ -56,7 +58,7 @@ public class AnimalAiPlugin extends Plugin {
                     "INPUT " + i +
                     " name=" + tensor.name() +
                     " type=" + tensor.dataType() +
-                    " shape=" + java.util.Arrays.toString(tensor.shape())
+                    " shape=" + Arrays.toString(tensor.shape())
                 );
             }
 
@@ -73,13 +75,16 @@ public class AnimalAiPlugin extends Plugin {
                     "OUTPUT " + i +
                     " name=" + tensor.name() +
                     " type=" + tensor.dataType() +
-                    " shape=" + java.util.Arrays.toString(tensor.shape())
+                    " shape=" + Arrays.toString(tensor.shape())
                 );
             }
 
             System.out.println("==========================================");
 
-            call.resolve();
+            JSObject info = new JSObject();
+            info.put("inputCount", interpreter.getInputTensorCount());
+            info.put("outputCount", interpreter.getOutputTensorCount());
+            call.resolve(info);
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -94,7 +99,7 @@ public class AnimalAiPlugin extends Plugin {
         try {
             InputStream input =
                 getContext().getAssets().open(
-                    "camera/mobilenet_v3_small.tflite"
+                    MODEL_PATH
                 );
 
             byte[] modelBytes = readAllBytes(input);
@@ -108,10 +113,10 @@ public class AnimalAiPlugin extends Plugin {
 
             interpreter = new Interpreter(modelBuffer);
 
-            loadLabels();
+            loadTaxonomy();
 
             System.out.println(
-                "Animal AI MobileNet model loaded. Labels: "
+                "Animal AI iNaturalist model loaded. Labels: "
                     + labels.size()
             );
 
@@ -146,28 +151,33 @@ public class AnimalAiPlugin extends Plugin {
                 return;
             }
 
+            org.tensorflow.lite.Tensor inputTensor = interpreter.getInputTensor(0);
+            int[] inputShape = inputTensor.shape();
+            int imageHeight = inputShape[1];
+            int imageWidth = inputShape[2];
+
             resized = Bitmap.createScaledBitmap(
                 bitmap,
-                IMAGE_SIZE,
-                IMAGE_SIZE,
+                imageWidth,
+                imageHeight,
                 true
             );
 
-            ByteBuffer inputBuffer =
-                ByteBuffer.allocateDirect(
-                    4 * IMAGE_SIZE * IMAGE_SIZE * 3
-                ).order(ByteOrder.nativeOrder());
+            int inputElements = imageHeight * imageWidth * 3;
+            ByteBuffer inputBuffer = ByteBuffer.allocateDirect(
+                inputElements * bytesPerElement(inputTensor.dataType())
+            ).order(ByteOrder.nativeOrder());
 
-            int[] pixels = new int[IMAGE_SIZE * IMAGE_SIZE];
+            int[] pixels = new int[imageElements(imageWidth, imageHeight)];
 
             resized.getPixels(
                 pixels,
                 0,
-                IMAGE_SIZE,
+                imageWidth,
                 0,
                 0,
-                IMAGE_SIZE,
-                IMAGE_SIZE
+                imageWidth,
+                imageHeight
             );
 
             /*
@@ -181,18 +191,33 @@ public class AnimalAiPlugin extends Plugin {
                 float green = ((pixel >> 8) & 0xFF) / 127.5f - 1.0f;
                 float blue = (pixel & 0xFF) / 127.5f - 1.0f;
 
-                inputBuffer.putFloat(red);
-                inputBuffer.putFloat(green);
-                inputBuffer.putFloat(blue);
+                putInputValue(inputBuffer, inputTensor, red);
+                putInputValue(inputBuffer, inputTensor, green);
+                putInputValue(inputBuffer, inputTensor, blue);
             }
 
             inputBuffer.rewind();
 
-            float[][] output = new float[1][CLASS_COUNT];
+            org.tensorflow.lite.Tensor outputTensor = interpreter.getOutputTensor(0);
+            int outputElements = tensorElementCount(outputTensor.shape());
+            ByteBuffer outputBuffer = ByteBuffer.allocateDirect(
+                outputElements * bytesPerElement(outputTensor.dataType())
+            ).order(ByteOrder.nativeOrder());
 
-            interpreter.run(inputBuffer, output);
+            interpreter.run(inputBuffer, outputBuffer);
+            outputBuffer.rewind();
 
-            float[] scores = output[0];
+            /*
+             * The model output is treated as logits.
+             *
+             * Convert logits into proper probabilities
+             * using softmax.
+             */
+            float[] logits = new float[outputElements];
+            for (int i = 0; i < outputElements; i++) {
+                logits[i] = readOutputValue(outputBuffer, outputTensor);
+            }
+            float[] scores = softmax(logits);
 
             int bestIndex = 0;
             float bestScore = scores[0];
@@ -215,6 +240,7 @@ public class AnimalAiPlugin extends Plugin {
             JSObject result = new JSObject();
 
             result.put("classId", bestIndex);
+            result.put("taxonId", taxonIds.get(bestIndex));
             result.put("name", animalName);
             result.put("category", category);
             result.put("confidence", bestScore);
@@ -245,6 +271,7 @@ public class AnimalAiPlugin extends Plugin {
                 JSObject prediction = new JSObject();
 
                 prediction.put("classId", classId);
+                prediction.put("taxonId", taxonIds.get(classId));
                 prediction.put("label", label);
                 prediction.put("category", getBroadCategory(label));
                 prediction.put("confidence", score);
@@ -258,7 +285,7 @@ public class AnimalAiPlugin extends Plugin {
                         + label
                         + " classId="
                         + classId
-                        + " score="
+                        + " probability="
                         + score
                 );
             }
@@ -272,7 +299,7 @@ public class AnimalAiPlugin extends Plugin {
                     + category
                     + " classId="
                     + bestIndex
-                    + " score="
+                    + " probability="
                     + bestScore
             );
 
@@ -291,6 +318,45 @@ public class AnimalAiPlugin extends Plugin {
                 resized.recycle();
             }
         }
+    }
+
+    /*
+     * Converts model logits into probabilities.
+     *
+     * The largest logit is subtracted first for numerical stability.
+     *
+     * Output values are between 0 and 1 and sum to approximately 1.
+     */
+    private float[] softmax(float[] logits) {
+        float maxLogit = Float.NEGATIVE_INFINITY;
+
+        for (float logit : logits) {
+            if (logit > maxLogit) {
+                maxLogit = logit;
+            }
+        }
+
+        float[] probabilities = new float[logits.length];
+
+        double sum = 0.0;
+
+        for (int i = 0; i < logits.length; i++) {
+            double exp = Math.exp(logits[i] - maxLogit);
+
+            probabilities[i] = (float) exp;
+
+            sum += exp;
+        }
+
+        if (sum == 0.0 || Double.isNaN(sum)) {
+            return probabilities;
+        }
+
+        for (int i = 0; i < probabilities.length; i++) {
+            probabilities[i] /= (float) sum;
+        }
+
+        return probabilities;
     }
 
     private Bitmap decodeImage(String imageData) {
@@ -322,12 +388,13 @@ public class AnimalAiPlugin extends Plugin {
         }
     }
 
-    private void loadLabels() throws Exception {
+    private void loadTaxonomy() throws Exception {
         labels.clear();
+        taxonIds.clear();
 
         InputStream input =
             getContext().getAssets().open(
-                "camera/imagenet_labels.txt"
+                "camera/taxonomy.csv"
             );
 
         BufferedReader reader =
@@ -336,35 +403,74 @@ public class AnimalAiPlugin extends Plugin {
             );
 
         String line;
+        boolean header = true;
 
         while ((line = reader.readLine()) != null) {
-            line = line.trim();
-
-            if (!line.isEmpty()) {
-                labels.add(line);
+            if (header) {
+                header = false;
+                continue;
             }
+
+            String[] columns = line.split(",", -1);
+            if (columns.length < 8 || columns[3].isEmpty()) continue;
+
+            int taxonId = Integer.parseInt(columns[1]);
+            int classId = Integer.parseInt(columns[3]);
+            taxonIds.put(classId, taxonId);
+            while (labels.size() <= classId) labels.add("");
+            labels.set(classId, columns[7]);
         }
 
         reader.close();
+    }
 
-        /*
-         * ImageNetLabels.txt has a background entry at index 0.
-         * The MobileNet output is zero-based over the 1000 classes.
-         *
-         * If the file contains 1001 entries, remove the background.
-         */
-        if (labels.size() == 1001) {
-            labels.remove(0);
+    private int imageElements(int width, int height) {
+        return width * height;
+    }
+
+    private int tensorElementCount(int[] shape) {
+        int count = 1;
+        for (int dimension : shape) count *= dimension;
+        return count;
+    }
+
+    private int bytesPerElement(org.tensorflow.lite.DataType dataType) {
+        if (dataType == org.tensorflow.lite.DataType.FLOAT32) return 4;
+        if (dataType == org.tensorflow.lite.DataType.INT32) return 4;
+        return 1;
+    }
+
+    private void putInputValue(
+        ByteBuffer buffer,
+        org.tensorflow.lite.Tensor tensor,
+        float value
+    ) {
+        if (tensor.dataType() == org.tensorflow.lite.DataType.FLOAT32) {
+            buffer.putFloat(value);
+            return;
         }
 
-        if (labels.size() != CLASS_COUNT) {
-            throw new Exception(
-                "Expected "
-                    + CLASS_COUNT
-                    + " ImageNet labels but loaded "
-                    + labels.size()
-            );
+        org.tensorflow.lite.Tensor.QuantizationParams quantization = tensor.quantizationParams();
+        int quantized = Math.round(value / quantization.getScale()) + quantization.getZeroPoint();
+        if (tensor.dataType() == org.tensorflow.lite.DataType.UINT8) {
+            buffer.put((byte) Math.max(0, Math.min(255, quantized)));
+        } else {
+            buffer.put((byte) Math.max(-128, Math.min(127, quantized)));
         }
+    }
+
+    private float readOutputValue(
+        ByteBuffer buffer,
+        org.tensorflow.lite.Tensor tensor
+    ) {
+        if (tensor.dataType() == org.tensorflow.lite.DataType.FLOAT32) {
+            return buffer.getFloat();
+        }
+
+        int raw = buffer.get();
+        if (tensor.dataType() == org.tensorflow.lite.DataType.UINT8) raw &= 0xFF;
+        org.tensorflow.lite.Tensor.QuantizationParams quantization = tensor.quantizationParams();
+        return (raw - quantization.getZeroPoint()) * quantization.getScale();
     }
 
     private String getLabel(int classId) {
