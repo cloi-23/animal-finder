@@ -112,7 +112,8 @@ def main() -> None:
     features = base(augmentation(inputs), training=False)
     features = tf.keras.layers.GlobalAveragePooling2D()(features)
     features = tf.keras.layers.Dropout(0.2)(features)
-    outputs = tf.keras.layers.Dense(len(BREEDS), activation="softmax")(features)
+    classifier = tf.keras.layers.Dense(len(BREEDS), activation="softmax")
+    outputs = classifier(features)
     model = tf.keras.Model(inputs, outputs)
     model.compile(
         optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),
@@ -122,7 +123,12 @@ def main() -> None:
     model.fit(train, validation_data=test, epochs=args.epochs)
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    concrete_function = tf.function(model).get_concrete_function(
+    export_inputs = tf.keras.Input(shape=(*IMAGE_SIZE, 3))
+    export_features = base(export_inputs, training=False)
+    export_features = tf.keras.layers.GlobalAveragePooling2D()(export_features)
+    export_features = tf.keras.layers.Dropout(0.2)(export_features, training=False)
+    export_model = tf.keras.Model(export_inputs, classifier(export_features))
+    concrete_function = tf.function(export_model).get_concrete_function(
         tf.TensorSpec([1, *IMAGE_SIZE, 3], tf.float32)
     )
     converter = tf.lite.TFLiteConverter.from_concrete_functions(
