@@ -1,0 +1,300 @@
+import { useEffect, useState } from "react";
+import { PlaceholderClassifier } from "../ai/placeholderClassifier";
+import {
+  IonContent,
+  IonHeader,
+  IonPage,
+  IonTitle,
+  IonToolbar,
+  IonSearchbar,
+  IonCard,
+  IonCardContent,
+  IonText,
+  IonSpinner,
+  IonButton,
+  IonIcon,
+} from "@ionic/react";
+
+import {
+  searchAnimals,
+  Animal,
+  getDistribution,
+} from "../database/animalDatabase";
+
+import "./Home.css";
+import { useNavigate } from "react-router";
+
+const Home: React.FC = () => {
+  const navigate = useNavigate();
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<Animal[]>([]);
+  const [distribution, setDistribution] = useState<Record<number, string[]>>(
+    {},
+  );
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const [prediction, setPrediction] = useState<string | null>(null);
+  const [predictionConfidence, setPredictionConfidence] = useState<
+    number | null
+  >(null);
+
+  const [classifier] = useState(() => new PlaceholderClassifier());
+
+  useEffect(() => {
+    classifier.initialize();
+
+    return () => {
+      classifier.dispose();
+    };
+  }, [classifier]);
+
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const handlePhotoSelected = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+
+    if (!file) return;
+
+    const imageUrl = URL.createObjectURL(file);
+
+    setSelectedImage(imageUrl);
+    setPrediction(null);
+    setPredictionConfidence(null);
+
+    const image = new Image();
+
+    image.onload = async () => {
+      try {
+        const predictions = await classifier.classify(image);
+
+        if (predictions.length > 0) {
+          setPrediction(predictions[0].label);
+          setPredictionConfidence(predictions[0].confidence);
+        }
+      } catch (error) {
+        console.error("Classification failed:", error);
+      }
+    };
+
+    image.src = imageUrl;
+  };
+
+  const handleSearch = async (value: string) => {
+    setQuery(value);
+    setError("");
+
+    if (!value.trim()) {
+      setResults([]);
+      setDistribution({});
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const animals = await searchAnimals(value);
+      setResults(animals);
+    } catch (err) {
+      console.error(err);
+      setError("Unable to search the animal database.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadDistribution = async () => {
+      if (results.length === 0) {
+        setDistribution({});
+        return;
+      }
+
+      const entries = await Promise.all(
+        results.map(async (animal) => {
+          try {
+            const areas = await getDistribution(animal.id);
+            return [animal.id, areas] as const;
+          } catch (err) {
+            console.error(
+              `Unable to load distribution for ${animal.scientific_name}`,
+              err,
+            );
+            return [animal.id, []] as const;
+          }
+        }),
+      );
+
+      if (!cancelled) {
+        setDistribution(Object.fromEntries(entries));
+      }
+    };
+
+    loadDistribution();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [results]);
+
+  return (
+    <IonPage>
+      <IonHeader>
+        <IonToolbar>
+          <IonTitle>🐾 Animal Finder</IonTitle>
+        </IonToolbar>
+      </IonHeader>
+
+      <IonContent fullscreen>
+        <div className="animal-home">
+          <IonText>
+            <h1>Animal Finder</h1>
+            <p>
+              Search millions of animals from the offline Catalogue of Life
+              database.
+            </p>
+          </IonText>
+
+          <IonSearchbar
+            value={query}
+            placeholder="Search animals..."
+            debounce={500}
+            onIonInput={(event) => handleSearch(event.detail.value ?? "")}
+          />
+
+          <div className="photo-identify">
+            <input
+              id="animal-photo"
+              type="file"
+              accept="image/*"
+              capture="environment"
+              hidden
+              onChange={handlePhotoSelected}
+            />
+
+            <IonButton
+              expand="block"
+              size="large"
+              onClick={() => {
+                document.getElementById("animal-photo")?.click();
+              }}
+            >
+              📷 Identify from photo
+            </IonButton>
+
+            <p>Take a photo or choose one from your device.</p>
+
+            {selectedImage && (
+              <div className="photo-preview">
+                <img src={selectedImage} alt="Selected animal" />
+              </div>
+            )}
+          </div>
+
+          {prediction && (
+            <div className="prediction">
+              <h2>🧠 Identification</h2>
+
+              <h3>{prediction}</h3>
+
+              {predictionConfidence !== null && (
+                <p>Confidence: {Math.round(predictionConfidence * 100)}%</p>
+              )}
+
+              <p className="prediction-note">AI model coming next.</p>
+            </div>
+          )}
+
+          {loading && (
+            <div className="loading">
+              <IonSpinner />
+              <p>Searching database...</p>
+            </div>
+          )}
+
+          {error && (
+            <IonText color="danger">
+              <p>{error}</p>
+            </IonText>
+          )}
+
+          {!loading && results.length > 0 && (
+            <div>
+              <IonText>
+                <p>{results.length} result(s)</p>
+              </IonText>
+
+              {results.map((animal) => {
+                const areas = distribution[animal.id] ?? [];
+
+                return (
+                  <IonCard
+                    key={animal.id}
+                    button
+                    onClick={() => navigate(`/animal/${animal.id}`)}
+                  >
+                    <IonCardContent>
+                      {animal.common_name && <h2>{animal.common_name}</h2>}
+
+                      <h3>{animal.scientific_name}</h3>
+
+                      {animal.authorship && (
+                        <p className="authorship">{animal.authorship}</p>
+                      )}
+
+                      <div className="taxonomy">
+                        {animal.kingdom && <span>{animal.kingdom}</span>}
+
+                        {animal.phylum && <span>{animal.phylum}</span>}
+
+                        {animal.class_name && <span>{animal.class_name}</span>}
+
+                        {animal.order_name && <span>{animal.order_name}</span>}
+
+                        {animal.family && <span>{animal.family}</span>}
+
+                        {animal.genus && <span>{animal.genus}</span>}
+                      </div>
+
+                      {areas.length > 0 && (
+                        <div className="distribution">
+                          <h4>🌍 Distribution</h4>
+
+                          <ul>
+                            {areas.slice(0, 10).map((area) => (
+                              <li key={area}>{area}</li>
+                            ))}
+                          </ul>
+
+                          {areas.length > 10 && (
+                            <p>+ {areas.length - 10} more areas</p>
+                          )}
+                        </div>
+                      )}
+
+                      {animal.extinct === 1 && (
+                        <IonText color="danger">
+                          <p>Extinct</p>
+                        </IonText>
+                      )}
+                    </IonCardContent>
+                  </IonCard>
+                );
+              })}
+            </div>
+          )}
+
+          {!loading && query.trim() && results.length === 0 && !error && (
+            <div className="no-results">
+              <h2>No animals found</h2>
+              <p>Try another name.</p>
+            </div>
+          )}
+        </div>
+      </IonContent>
+    </IonPage>
+  );
+};
+
+export default Home;

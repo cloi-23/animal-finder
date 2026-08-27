@@ -1,0 +1,32 @@
+.animal-details {
+  padding: 12px;
+}
+
+.animal-details h1 {
+  margin-bottom: 6px;
+  font-size: 30px;
+}
+
+.animal-details h2 {
+  font-style: italic;
+  font-weight: 400;
+}
+
+.classification > div {
+  display: flex;
+  justify-content: space-between;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--ion-color-light);
+}
+
+.classification span {
+  text-align: right;
+}
+
+.animal-details ul {
+  padding-left: 22px;
+}
+
+.animal-details li {
+  margin-bottom: 6px;
+}

@@ -1,0 +1,157 @@
+.animal-home {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 24px 16px 48px;
+}
+
+.animal-home h1 {
+  margin-bottom: 8px;
+  font-size: 32px;
+  font-weight: 700;
+}
+
+.animal-home > ion-text p {
+  margin-top: 0;
+  margin-bottom: 24px;
+  color: var(--ion-color-medium);
+}
+
+.animal-home ion-searchbar {
+  padding: 0;
+  margin-bottom: 20px;
+}
+
+.animal-home ion-card h2 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.animal-home ion-card h3 {
+  margin: 6px 0 0;
+  font-size: 18px;
+  font-style: italic;
+  font-weight: 400;
+}
+
+.loading {
+  text-align: center;
+  padding: 40px 0;
+}
+
+.loading ion-spinner {
+  width: 32px;
+  height: 32px;
+}
+
+.loading p {
+  color: var(--ion-color-medium);
+}
+
+.animal-home ion-card {
+  margin: 12px 0;
+}
+
+.animal-home ion-card h2 {
+  margin: 0;
+  font-size: 20px;
+  font-style: italic;
+}
+
+.authorship {
+  margin-top: 6px;
+  color: var(--ion-color-medium);
+  font-style: italic;
+}
+
+.taxonomy {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 16px;
+}
+
+.taxonomy span {
+  padding: 5px 9px;
+  border-radius: 12px;
+  background: var(--ion-color-light);
+  font-size: 13px;
+}
+
+.no-results {
+  text-align: center;
+  padding: 40px 0;
+}
+
+.no-results h2 {
+  margin-bottom: 4px;
+}
+
+.distribution {
+  margin-top: 18px;
+  padding-top: 12px;
+  border-top: 1px solid var(--ion-color-light);
+}
+
+.distribution h4 {
+  margin: 0 0 8px;
+  font-size: 16px;
+}
+
+.distribution ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.distribution li {
+  margin-bottom: 4px;
+}
+
+.photo-identify {
+  margin: 16px 0 28px;
+}
+
+.photo-identify ion-button {
+  margin: 0;
+}
+
+.photo-identify p {
+  margin: 8px 0 0;
+  text-align: center;
+  color: var(--ion-color-medium);
+  font-size: 14px;
+}
+
+.photo-preview {
+  margin-top: 16px;
+  text-align: center;
+}
+
+.photo-preview img {
+  width: 100%;
+  max-width: 500px;
+  max-height: 500px;
+  object-fit: contain;
+  border-radius: 16px;
+}
+
+.prediction {
+  margin-top: 20px;
+  padding: 16px;
+  border-radius: 16px;
+  background: var(--ion-color-light);
+  text-align: center;
+}
+
+.prediction h2 {
+  margin-top: 0;
+}
+
+.prediction h3 {
+  margin-bottom: 6px;
+}
+
+.prediction-note {
+  color: var(--ion-color-medium);
+  font-size: 14px;
+}

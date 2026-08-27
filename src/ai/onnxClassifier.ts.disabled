@@ -1,0 +1,40 @@
+import * as ort from "onnxruntime-web";
+import type {
+  AnimalClassifier,
+  AnimalPrediction,
+} from "./animalClassifier";
+
+export class OnnxAnimalClassifier implements AnimalClassifier {
+  private session: ort.InferenceSession | null = null;
+
+  async initialize(): Promise<void> {
+    console.log("Loading animal AI model...");
+
+    // Model will be added here.
+    // We deliberately don't load a model yet.
+    this.session = null;
+
+    console.log("Animal AI model ready");
+  }
+
+  async classify(
+    _image: HTMLImageElement
+  ): Promise<AnimalPrediction[]> {
+    if (!this.session) {
+      return [
+        {
+          label: "AI model not installed",
+          confidence: 0,
+        },
+      ];
+    }
+
+    // Real image preprocessing + ONNX inference
+    // will go here.
+    return [];
+  }
+
+  dispose(): void {
+    this.session = null;
+  }
+}

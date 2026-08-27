@@ -1,0 +1,7 @@
+{
+  "name": "animal-finder",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "react-vite"
+}
