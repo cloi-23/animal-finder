@@ -24,7 +24,6 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: "3.11"
-          cache: pip
 
       - name: Install TensorFlow
         run: python -m pip install --upgrade pip tensorflow==2.16.1
