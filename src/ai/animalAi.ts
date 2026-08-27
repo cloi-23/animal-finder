@@ -22,12 +22,16 @@ export interface AnimalModelInfo {
   }>;
 }
 
+export interface AnimalClassificationResult {
+  classId: number;
+  name: string;
+  confidence: number;
+}
+
 export interface AnimalAiPlugin {
   modelInfo(): Promise<AnimalModelInfo>;
 
-  classify(options: { image: string }): Promise<{
-    predictions: AnimalPrediction[];
-  }>;
+  classify(options: { image: string }): Promise<AnimalClassificationResult>;
 }
 
 export const AnimalAI = registerPlugin<AnimalAiPlugin>("AnimalAI");

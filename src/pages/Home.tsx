@@ -12,7 +12,6 @@ import {
   IonText,
   IonSpinner,
   IonButton,
-  IonIcon,
 } from "@ionic/react";
 
 import {
@@ -26,11 +25,13 @@ import { useNavigate } from "react-router";
 
 const Home: React.FC = () => {
   const navigate = useNavigate();
+
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Animal[]>([]);
   const [distribution, setDistribution] = useState<Record<number, string[]>>(
     {},
   );
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -38,6 +39,9 @@ const Home: React.FC = () => {
   const [predictionConfidence, setPredictionConfidence] = useState<
     number | null
   >(null);
+
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [identifying, setIdentifying] = useState(false);
 
   useEffect(() => {
     AnimalAI.modelInfo()
@@ -49,17 +53,76 @@ const Home: React.FC = () => {
       });
   }, []);
 
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  const handlePhotoSelected = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+
+      reader.onload = () => {
+        if (typeof reader.result !== "string") {
+          reject(new Error("Unable to convert image to Base64"));
+          return;
+        }
+
+        resolve(reader.result);
+      };
+
+      reader.onerror = () => {
+        reject(reader.error ?? new Error("Unable to read image"));
+      };
+
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handlePhotoSelected = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     const file = event.target.files?.[0];
 
     if (!file) return;
 
-    const imageUrl = URL.createObjectURL(file);
-
-    setSelectedImage(imageUrl);
+    setError("");
     setPrediction(null);
     setPredictionConfidence(null);
+    setIdentifying(true);
+
+    const imageUrl = URL.createObjectURL(file);
+    setSelectedImage(imageUrl);
+
+    try {
+      console.log("Animal AI: converting image to Base64...");
+
+      const base64Image = await fileToBase64(file);
+
+      console.log("Animal AI: image converted");
+      console.log("Animal AI: Base64 length:", base64Image.length);
+
+      console.log("Animal AI: running classification...");
+
+      const result = await AnimalAI.classify({
+        image: base64Image,
+      });
+
+      console.log("Animal AI RESULT:", JSON.stringify(result, null, 2));
+
+      setPrediction(result.name ?? "Unknown animal");
+      setPredictionConfidence(
+        typeof result.confidence === "number" ? result.confidence : null,
+      );
+    } catch (err) {
+      console.error("Animal AI classification failed:", err);
+
+      setError(
+        err instanceof Error ? err.message : "Unable to identify the animal.",
+      );
+    } finally {
+      setIdentifying(false);
+
+      /*
+       * Allow selecting the same file again.
+       */
+      event.target.value = "";
+    }
   };
 
   const handleSearch = async (value: string) => {
@@ -104,6 +167,7 @@ const Home: React.FC = () => {
               `Unable to load distribution for ${animal.scientific_name}`,
               err,
             );
+
             return [animal.id, []] as const;
           }
         }),
@@ -133,6 +197,7 @@ const Home: React.FC = () => {
         <div className="animal-home">
           <IonText>
             <h1>Animal Finder</h1>
+
             <p>
               Search millions of animals from the offline Catalogue of Life
               database.
@@ -159,14 +224,19 @@ const Home: React.FC = () => {
             <IonButton
               expand="block"
               size="large"
+              disabled={identifying}
               onClick={() => {
                 document.getElementById("animal-photo")?.click();
               }}
             >
-              📷 Identify from photo
+              {identifying ? "🧠 Identifying..." : "📷 Identify from photo"}
             </IonButton>
 
-            <p>Take a photo or choose one from your device.</p>
+            <p>
+              {identifying
+                ? "The AI model is analyzing the image..."
+                : "Take a photo or choose one from your device."}
+            </p>
 
             {selectedImage && (
               <div className="photo-preview">
@@ -184,8 +254,6 @@ const Home: React.FC = () => {
               {predictionConfidence !== null && (
                 <p>Confidence: {Math.round(predictionConfidence * 100)}%</p>
               )}
-
-              <p className="prediction-note">AI model coming next.</p>
             </div>
           )}
 
