@@ -1,4 +1,3 @@
-```java
 package io.ionic.starter.plugins;
 
 import android.graphics.Bitmap;
@@ -348,4 +347,3 @@ public class AnimalAiPlugin extends Plugin {
         return output.toByteArray();
     }
 }
-```
