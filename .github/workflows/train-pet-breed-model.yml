@@ -10,6 +10,7 @@ on:
 
 permissions:
   contents: read
+  actions: write
 
 jobs:
   train:
@@ -57,3 +58,25 @@ jobs:
           name: oxford-iiit-pet-model
           path: training-output/
           retention-days: 14
+
+      - name: Keep only the latest training run and artifact
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh run list \
+            --workflow train-pet-breed-model.yml \
+            --limit 100 \
+            --json databaseId,createdAt \
+            --jq 'sort_by(.createdAt) | reverse | .[1:] | .[].databaseId' \
+            | while read -r run_id; do
+                [[ -z "$run_id" ]] || gh run delete "$run_id"
+              done
+
+          gh api --paginate --slurp \
+            "repos/${{ github.repository }}/actions/artifacts?per_page=100" \
+            --jq 'add | map(.artifacts[]) | map(select(.name == "oxford-iiit-pet-model")) | sort_by(.created_at) | reverse | .[1:] | .[].id' \
+            | while read -r artifact_id; do
+                [[ -z "$artifact_id" ]] || gh api --method DELETE \
+                  "repos/${{ github.repository }}/actions/artifacts/$artifact_id"
+              done

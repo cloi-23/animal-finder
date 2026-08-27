@@ -5,6 +5,7 @@ on:
 
 permissions:
   contents: write
+  actions: write
 
 jobs:
   build:
@@ -95,3 +96,31 @@ jobs:
             --repo "${{ github.repository }}" \
             --title "Animal Finder v${{ github.run_number }}" \
             --notes "Signed Android release APK built from commit ${{ github.sha }}."
+
+      - name: Keep only the latest APK run, artifact, release, and tag
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh run list \
+            --workflow android.yml \
+            --limit 100 \
+            --json databaseId,createdAt \
+            --jq 'sort_by(.createdAt) | reverse | .[1:] | .[].databaseId' \
+            | while read -r run_id; do
+                [[ -z "$run_id" ]] || gh run delete "$run_id"
+              done
+
+          gh api --paginate --slurp \
+            "repos/${{ github.repository }}/actions/artifacts?per_page=100" \
+            --jq 'add | map(.artifacts[]) | map(select(.name == "animal-finder-release-apk")) | sort_by(.created_at) | reverse | .[1:] | .[].id' \
+            | while read -r artifact_id; do
+                [[ -z "$artifact_id" ]] || gh api --method DELETE \
+                  "repos/${{ github.repository }}/actions/artifacts/$artifact_id"
+              done
+
+          gh api --paginate --slurp "repos/${{ github.repository }}/releases?per_page=100" \
+            --jq 'add | map(select(.tag_name | startswith("v"))) | sort_by(.created_at) | reverse | .[1:] | .[].tag_name' \
+            | while read -r old_tag; do
+                [[ -z "$old_tag" ]] || gh release delete "$old_tag" --cleanup-tag --yes
+              done
