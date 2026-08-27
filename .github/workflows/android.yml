@@ -55,23 +55,37 @@ jobs:
         working-directory: android
         run: ./gradlew assembleRelease
 
+      - name: Find release APK
+        run: |
+          echo "Generated APK files:"
+          find android/app/build/outputs/apk -type f -name "*.apk" -print
+
+      - name: Rename release APK
+        run: |
+          APK=$(find android/app/build/outputs/apk/release -type f -name "*.apk" | head -n 1)
+
+          if [ -z "$APK" ]; then
+            echo "ERROR: No release APK found"
+            exit 1
+          fi
+
+          echo "Found APK: $APK"
+
+          cp "$APK" animal-finder-release.apk
+
+          ls -lh animal-finder-release.apk
+
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: animal-finder-release-apk
-          path: android/app/build/outputs/apk/release/app-release.apk
+          path: animal-finder-release.apk
           retention-days: 3
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: android-${{ github.run_number }}
-          name: Animal Finder Android ${{ github.run_number }}
-          body: |
-            Android release build.
-
-            Commit: ${{ github.sha }}
-
-            Built automatically from main.
-          files: android/app/build/outputs/apk/release/app-release.apk
+          tag_name: android-v${{ github.run_number }}
+          name: Animal Finder Android v${{ github.run_number }}
           generate_release_notes: true
+          files: animal-finder-release.apk
