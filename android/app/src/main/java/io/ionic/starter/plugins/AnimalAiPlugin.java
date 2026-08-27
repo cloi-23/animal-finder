@@ -198,14 +198,9 @@ public class AnimalAiPlugin extends Plugin {
 
             inputBuffer.rewind();
 
-            org.tensorflow.lite.Tensor outputTensor = interpreter.getOutputTensor(0);
-            int outputElements = tensorElementCount(outputTensor.shape());
-            ByteBuffer outputBuffer = ByteBuffer.allocateDirect(
-                outputElements * bytesPerElement(outputTensor.dataType())
-            ).order(ByteOrder.nativeOrder());
+            float[][] output = new float[1][1000];
 
-            interpreter.run(inputBuffer, outputBuffer);
-            outputBuffer.rewind();
+            interpreter.run(inputBuffer, output);
 
             /*
              * The model output is treated as logits.
@@ -213,10 +208,7 @@ public class AnimalAiPlugin extends Plugin {
              * Convert logits into proper probabilities
              * using softmax.
              */
-            float[] logits = new float[outputElements];
-            for (int i = 0; i < outputElements; i++) {
-                logits[i] = readOutputValue(outputBuffer, outputTensor);
-            }
+            float[] logits = output[0];
             float[] scores = softmax(logits);
 
             int bestIndex = 0;
