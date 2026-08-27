@@ -1,7 +1,8 @@
 import { registerPlugin } from "@capacitor/core";
 
 export interface AnimalPrediction {
-  label: string;
+  classId: number;
+  name: string;
   confidence: number;
 }
 
@@ -22,16 +23,23 @@ export interface AnimalModelInfo {
   }>;
 }
 
-export interface AnimalClassificationResult {
+export interface AnimalClassifyResult {
   classId: number;
   name: string;
+  category: string;
   confidence: number;
+  predictions: AnimalPrediction[];
 }
 
 export interface AnimalAiPlugin {
   modelInfo(): Promise<AnimalModelInfo>;
 
-  classify(options: { image: string }): Promise<AnimalClassificationResult>;
+  classify(options: { image: string }): Promise<{
+    category: string;
+    name: string;
+    confidence: number;
+    classId: number;
+  }>;
 }
 
 export const AnimalAI = registerPlugin<AnimalAiPlugin>("AnimalAI");

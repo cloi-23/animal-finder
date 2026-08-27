@@ -104,8 +104,7 @@ const Home: React.FC = () => {
       });
 
       console.log("Animal AI RESULT:", JSON.stringify(result, null, 2));
-
-      setPrediction(result.name ?? "Unknown animal");
+      setPrediction(`${result.category} — ${result.name}`);
       setPredictionConfidence(
         typeof result.confidence === "number" ? result.confidence : null,
       );

@@ -9,6 +9,11 @@ local.properties
 # Log/OS Files
 *.log
 
+# Android release signing key
+animal-finder-release.keystore
+*.keystore
+
+
 # Android Studio generated files and folders
 captures/
 .externalNativeBuild/
