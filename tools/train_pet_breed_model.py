@@ -122,7 +122,12 @@ def main() -> None:
     model.fit(train, validation_data=test, epochs=args.epochs)
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    converter = tf.lite.TFLiteConverter.from_keras_model(model)
+    concrete_function = tf.function(model).get_concrete_function(
+        tf.TensorSpec([1, *IMAGE_SIZE, 3], tf.float32)
+    )
+    converter = tf.lite.TFLiteConverter.from_concrete_functions(
+        [concrete_function], model
+    )
     converter.optimizations = [tf.lite.Optimize.DEFAULT]
     model_bytes = converter.convert()
     args.output.write_bytes(model_bytes)
