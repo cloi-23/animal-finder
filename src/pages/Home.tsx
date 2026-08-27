@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { PlaceholderClassifier } from "../ai/placeholderClassifier";
+import { AnimalAI } from "../ai/animalAi";
 import {
   IonContent,
   IonHeader,
@@ -39,15 +39,15 @@ const Home: React.FC = () => {
     number | null
   >(null);
 
-  const [classifier] = useState(() => new PlaceholderClassifier());
-
   useEffect(() => {
-    classifier.initialize();
-
-    return () => {
-      classifier.dispose();
-    };
-  }, [classifier]);
+    AnimalAI.modelInfo()
+      .then((info) => {
+        console.log("ANIMAL AI MODEL INFO", info);
+      })
+      .catch((error) => {
+        console.error("ANIMAL AI MODEL INFO FAILED", error);
+      });
+  }, []);
 
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const handlePhotoSelected = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -60,23 +60,6 @@ const Home: React.FC = () => {
     setSelectedImage(imageUrl);
     setPrediction(null);
     setPredictionConfidence(null);
-
-    const image = new Image();
-
-    image.onload = async () => {
-      try {
-        const predictions = await classifier.classify(image);
-
-        if (predictions.length > 0) {
-          setPrediction(predictions[0].label);
-          setPredictionConfidence(predictions[0].confidence);
-        }
-      } catch (error) {
-        console.error("Classification failed:", error);
-      }
-    };
-
-    image.src = imageUrl;
   };
 
   const handleSearch = async (value: string) => {
