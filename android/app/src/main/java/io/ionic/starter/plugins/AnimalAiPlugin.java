@@ -28,7 +28,7 @@ import java.util.Map;
 @CapacitorPlugin(name = "AnimalAI")
 public class AnimalAiPlugin extends Plugin {
 
-    private static final String MODEL_PATH = "camera/inat_vision.tflite";
+    private static final String MODEL_PATH = "camera/mobilenet_v3_small.tflite";
 
     private Interpreter interpreter;
     private final List<String> labels = new ArrayList<>();
@@ -113,10 +113,10 @@ public class AnimalAiPlugin extends Plugin {
 
             interpreter = new Interpreter(modelBuffer);
 
-            loadTaxonomy();
+            loadLabels();
 
             System.out.println(
-                "Animal AI iNaturalist model loaded. Labels: "
+                "Animal AI MobileNet model loaded. Labels: "
                     + labels.size()
             );
 
@@ -388,13 +388,13 @@ public class AnimalAiPlugin extends Plugin {
         }
     }
 
-    private void loadTaxonomy() throws Exception {
+    private void loadLabels() throws Exception {
         labels.clear();
         taxonIds.clear();
 
         InputStream input =
             getContext().getAssets().open(
-                "camera/taxonomy.csv"
+                "camera/imagenet_labels.txt"
             );
 
         BufferedReader reader =
@@ -403,25 +403,19 @@ public class AnimalAiPlugin extends Plugin {
             );
 
         String line;
-        boolean header = true;
 
         while ((line = reader.readLine()) != null) {
-            if (header) {
-                header = false;
-                continue;
-            }
-
-            String[] columns = line.split(",", -1);
-            if (columns.length < 8 || columns[3].isEmpty()) continue;
-
-            int taxonId = Integer.parseInt(columns[1]);
-            int classId = Integer.parseInt(columns[3]);
-            taxonIds.put(classId, taxonId);
-            while (labels.size() <= classId) labels.add("");
-            labels.set(classId, columns[7]);
+            line = line.trim();
+            if (!line.isEmpty()) labels.add(line);
         }
 
         reader.close();
+
+        if (labels.size() == 1001) labels.remove(0);
+
+        if (labels.size() != 1000) {
+            throw new Exception("Expected 1000 ImageNet labels but loaded " + labels.size());
+        }
     }
 
     private int imageElements(int width, int height) {
