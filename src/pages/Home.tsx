@@ -42,7 +42,7 @@ const Home: React.FC = () => {
   useEffect(() => {
     AnimalAI.modelInfo()
       .then((info) => {
-        console.log("ANIMAL AI MODEL INFO", info);
+        console.log("ANIMAL AI MODEL INFO", JSON.stringify(info, null, 2));
       })
       .catch((error) => {
         console.error("ANIMAL AI MODEL INFO FAILED", error);
