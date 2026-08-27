@@ -6,12 +6,12 @@ on:
       - main
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
-
-    permissions:
-      contents: read
 
     steps:
       - name: Checkout
@@ -51,13 +51,27 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Build debug APK
+      - name: Build release APK
         working-directory: android
-        run: ./gradlew assembleDebug
+        run: ./gradlew assembleRelease
 
-      - name: Upload APK
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: animal-finder-debug-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: animal-finder-release-apk
+          path: android/app/build/outputs/apk/release/app-release.apk
           retention-days: 3
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: android-${{ github.run_number }}
+          name: Animal Finder Android ${{ github.run_number }}
+          body: |
+            Android release build.
+
+            Commit: ${{ github.sha }}
+
+            Built automatically from main.
+          files: android/app/build/outputs/apk/release/app-release.apk
+          generate_release_notes: true
