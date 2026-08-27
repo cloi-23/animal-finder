@@ -28,7 +28,7 @@ import java.util.Map;
 @CapacitorPlugin(name = "AnimalAI")
 public class AnimalAiPlugin extends Plugin {
 
-    private static final String MODEL_PATH = "camera/mobilenet_v3_small.tflite";
+    private static final String MODEL_PATH = "camera/oxford_iiit_pet.tflite";
 
     private Interpreter interpreter;
     private final List<String> labels = new ArrayList<>();
@@ -113,10 +113,10 @@ public class AnimalAiPlugin extends Plugin {
 
             interpreter = new Interpreter(modelBuffer);
 
-            loadLabels();
+            loadBreedLabels();
 
             System.out.println(
-                "Animal AI MobileNet model loaded. Labels: "
+                "Animal AI Oxford-IIIT Pet model loaded. Labels: "
                     + labels.size()
             );
 
@@ -198,7 +198,10 @@ public class AnimalAiPlugin extends Plugin {
 
             inputBuffer.rewind();
 
-            float[][] output = new float[1][1000];
+            int outputCount = tensorElementCount(
+                interpreter.getOutputTensor(0).shape()
+            );
+            float[][] output = new float[1][outputCount];
 
             interpreter.run(inputBuffer, output);
 
@@ -380,13 +383,13 @@ public class AnimalAiPlugin extends Plugin {
         }
     }
 
-    private void loadLabels() throws Exception {
+    private void loadBreedLabels() throws Exception {
         labels.clear();
         taxonIds.clear();
 
         InputStream input =
             getContext().getAssets().open(
-                "camera/imagenet_labels.txt"
+                "camera/breed_labels.txt"
             );
 
         BufferedReader reader =
@@ -403,10 +406,8 @@ public class AnimalAiPlugin extends Plugin {
 
         reader.close();
 
-        if (labels.size() == 1001) labels.remove(0);
-
-        if (labels.size() != 1000) {
-            throw new Exception("Expected 1000 ImageNet labels but loaded " + labels.size());
+        if (labels.size() != 37) {
+            throw new Exception("Expected 37 breed labels but loaded " + labels.size());
         }
     }
 
