@@ -35,54 +35,54 @@ public class AnimalAiPlugin extends Plugin {
     @PluginMethod
     public void modelInfo(PluginCall call) {
         if (interpreter == null) {
+            System.out.println("ANIMAL AI MODEL INFO: MODEL NOT LOADED");
             call.reject("Animal AI model is not loaded");
             return;
         }
 
         try {
-            JSObject result = new JSObject();
+            System.out.println("========== ANIMAL AI MODEL INFO ==========");
 
-            result.put("inputCount", interpreter.getInputTensorCount());
-            result.put("outputCount", interpreter.getOutputTensorCount());
-
-            JSArray inputs = new JSArray();
+            System.out.println(
+                "Input tensor count: " +
+                interpreter.getInputTensorCount()
+            );
 
             for (int i = 0; i < interpreter.getInputTensorCount(); i++) {
                 org.tensorflow.lite.Tensor tensor =
                     interpreter.getInputTensor(i);
 
-                JSObject info = new JSObject();
-
-                info.put("index", i);
-                info.put("name", tensor.name());
-                info.put("type", tensor.dataType().toString());
-                info.put("shape", new JSArray(tensor.shape()));
-
-                inputs.put(info);
+                System.out.println(
+                    "INPUT " + i +
+                    " name=" + tensor.name() +
+                    " type=" + tensor.dataType() +
+                    " shape=" + java.util.Arrays.toString(tensor.shape())
+                );
             }
 
-            JSArray outputs = new JSArray();
+            System.out.println(
+                "Output tensor count: " +
+                interpreter.getOutputTensorCount()
+            );
 
             for (int i = 0; i < interpreter.getOutputTensorCount(); i++) {
                 org.tensorflow.lite.Tensor tensor =
                     interpreter.getOutputTensor(i);
 
-                JSObject info = new JSObject();
-
-                info.put("index", i);
-                info.put("name", tensor.name());
-                info.put("type", tensor.dataType().toString());
-                info.put("shape", new JSArray(tensor.shape()));
-
-                outputs.put(info);
+                System.out.println(
+                    "OUTPUT " + i +
+                    " name=" + tensor.name() +
+                    " type=" + tensor.dataType() +
+                    " shape=" + java.util.Arrays.toString(tensor.shape())
+                );
             }
 
-            result.put("inputs", inputs);
-            result.put("outputs", outputs);
+            System.out.println("==========================================");
 
-            call.resolve(result);
+            call.resolve();
 
         } catch (Exception e) {
+            e.printStackTrace();
             call.reject("Unable to inspect MobileNet model", e);
         }
     }
