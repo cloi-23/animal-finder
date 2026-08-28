@@ -117,8 +117,21 @@ const Home: React.FC = () => {
           </section>
 
           <section className="photo-identify">
-            <input id="animal-camera" type="file" accept="image/*" capture="environment" hidden onChange={handlePhotoSelected} />
-            <input id="animal-upload" type="file" accept="image/*" hidden onChange={handlePhotoSelected} />
+            <input
+              id="animal-camera"
+              type="file"
+              accept="image/*"
+              capture="environment"
+              hidden
+              onChange={handlePhotoSelected}
+            />
+            <input
+              id="animal-upload"
+              type="file"
+              accept="image/*"
+              hidden
+              onChange={handlePhotoSelected}
+            />
             <div className="photo-copy">
               <span className="camera-mark">✦</span>
               <h2>Meet your pet's match</h2>
@@ -129,10 +142,24 @@ const Home: React.FC = () => {
               </p>
             </div>
             <div className="photo-actions">
-              <IonButton size="large" disabled={identifying} onClick={() => document.getElementById("animal-camera")?.click()}>
+              <IonButton
+                size="large"
+                disabled={identifying}
+                onClick={() =>
+                  document.getElementById("animal-camera")?.click()
+                }
+              >
                 {identifying ? "Identifying..." : "Take a picture"}
               </IonButton>
-              <IonButton className="upload-button" fill="outline" size="large" disabled={identifying} onClick={() => document.getElementById("animal-upload")?.click()}>
+              <IonButton
+                className="upload-button"
+                fill="outline"
+                size="large"
+                disabled={identifying}
+                onClick={() =>
+                  document.getElementById("animal-upload")?.click()
+                }
+              >
                 Upload a photo
               </IonButton>
             </div>
