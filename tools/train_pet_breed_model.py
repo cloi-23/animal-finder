@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import pathlib
+import random
 import tarfile
 
 import tensorflow as tf
@@ -89,13 +90,32 @@ def main() -> None:
     parser.add_argument("--images", type=pathlib.Path, required=True)
     parser.add_argument("--annotations", type=pathlib.Path, required=True)
     parser.add_argument("--output", type=pathlib.Path, required=True)
-    parser.add_argument("--epochs", type=int, default=8)
+    parser.add_argument("--epochs", type=int, default=30)
     args = parser.parse_args()
 
     train_paths, train_labels = read_split(args.annotations / "trainval.txt")
     test_paths, test_labels = read_split(args.annotations / "test.txt")
+    train_items = list(zip(train_paths, train_labels))
+    random.Random(42).shuffle(train_items)
+    train_paths, train_labels = zip(*train_items)
+    train_paths, train_labels = list(train_paths), list(train_labels)
+    split_index = int(len(train_paths) * 0.9)
+    validation_paths = train_paths[split_index:]
+    validation_labels = train_labels[split_index:]
+    train_paths = train_paths[:split_index]
+    train_labels = train_labels[:split_index]
     train = make_dataset(args.images, train_paths, train_labels, training=True)
+    validation = make_dataset(
+        args.images, validation_paths, validation_labels, training=False
+    )
     test = make_dataset(args.images, test_paths, test_labels, training=False)
+    def early_stopping() -> tf.keras.callbacks.EarlyStopping:
+        return tf.keras.callbacks.EarlyStopping(
+            monitor="val_accuracy",
+            patience=3,
+            mode="max",
+            restore_best_weights=True,
+        )
 
     augmentation = tf.keras.Sequential(
         [
@@ -120,7 +140,12 @@ def main() -> None:
         loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
         metrics=["accuracy"],
     )
-    model.fit(train, validation_data=test, epochs=args.epochs)
+    model.fit(
+        train,
+        validation_data=validation,
+        epochs=args.epochs,
+        callbacks=[early_stopping()],
+    )
 
     # Fine-tune the last backbone layers so the features adapt to pet photos.
     base.trainable = True
@@ -131,7 +156,12 @@ def main() -> None:
         loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
         metrics=["accuracy"],
     )
-    model.fit(train, validation_data=test, epochs=max(1, args.epochs // 4))
+    model.fit(
+        train,
+        validation_data=validation,
+        epochs=args.epochs,
+        callbacks=[early_stopping()],
+    )
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     export_inputs = tf.keras.Input(shape=(*IMAGE_SIZE, 3))

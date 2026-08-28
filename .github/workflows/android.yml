@@ -40,13 +40,13 @@ jobs:
       - name: Download latest trained pet model
         run: |
           RUN_ID=$(gh run list \
-            --workflow train-pet-breed-model.yml \
+            --workflow train-dogs-cats-model.yml \
             --status success \
             --limit 1 \
             --json databaseId \
             --jq '.[0].databaseId')
           if [[ -z "$RUN_ID" || "$RUN_ID" == "null" ]]; then
-            echo "No successful pet breed training run is available."
+            echo "No successful dogs and cats training run is available."
             exit 1
           fi
           gh run download "$RUN_ID" \
@@ -144,8 +144,18 @@ jobs:
                   "repos/${{ github.repository }}/actions/artifacts/$artifact_id"
               done
 
-          gh api --paginate --slurp "repos/${{ github.repository }}/releases?per_page=100" \
-            --jq 'add | map(select(.tag_name | startswith("v"))) | sort_by(.created_at) | reverse | .[1:] | .[].tag_name' \
+          gh release list \
+            --limit 100 \
+            --json tagName,createdAt \
+            --jq 'map(select(.tagName | test("^v[0-9]+$"))) | sort_by(.createdAt) | reverse | .[1:] | .[].tagName' \
+            | while read -r old_release; do
+                [[ -z "$old_release" ]] || gh release delete "$old_release" --cleanup-tag --yes
+              done
+
+          gh api --paginate --slurp \
+            "repos/${{ github.repository }}/tags?per_page=100" \
+            --jq 'add | map(.name) | map(select(test("^v[0-9]+$"))) | sort_by(sub("^v"; "") | tonumber) | reverse | .[1:] | .[]' \
             | while read -r old_tag; do
-                [[ -z "$old_tag" ]] || gh release delete "$old_tag" --cleanup-tag --yes
+                [[ -z "$old_tag" ]] || gh api --method DELETE \
+                  "repos/${{ github.repository }}/git/refs/tags/$old_tag"
               done

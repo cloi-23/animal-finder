@@ -1,12 +1,7 @@
-name: Train Dog and Cat Breed Model
+name: Train Dogs and Cats Breed Model
 
 on:
   workflow_dispatch:
-    inputs:
-      epochs:
-        description: "Training epochs"
-        required: false
-        default: "8"
 
 permissions:
   contents: read
@@ -29,7 +24,7 @@ jobs:
       - name: Install TensorFlow
         run: python -m pip install --upgrade pip tensorflow==2.16.1
 
-      - name: Download dog and cat breed dataset
+      - name: Download dogs and cats breed dataset
         run: |
           mkdir -p training-data
           curl -L --retry 3 --fail \
@@ -44,15 +39,14 @@ jobs:
           tar -xzf training-data/images.tar.gz -C training-data
           tar -xzf training-data/annotations.tar.gz -C training-data
 
-      - name: Train and convert dog and cat model
+      - name: Train and convert dogs and cats model
         run: |
           python tools/train_pet_breed_model.py \
             --images training-data/images \
             --annotations training-data/annotations \
-            --epochs "${{ inputs.epochs }}" \
             --output training-output/oxford_iiit_pet.tflite
 
-      - name: Upload dog and cat TFLite model and labels
+      - name: Upload pet TFLite model and labels
         uses: actions/upload-artifact@v5
         with:
           name: oxford-iiit-pet-model
@@ -65,7 +59,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh run list \
-            --workflow train-pet-breed-model.yml \
+            --workflow train-dogs-cats-model.yml \
             --limit 100 \
             --json databaseId,createdAt \
             --jq 'sort_by(.createdAt) | reverse | .[1:] | .[].databaseId' \
