@@ -1,265 +1,155 @@
 import { useEffect, useState } from "react";
 import { AnimalAI } from "../ai/animalAi";
 import {
+  IonButton,
   IonContent,
   IonHeader,
   IonPage,
+  IonText,
   IonTitle,
   IonToolbar,
-  IonSearchbar,
-  IonCard,
-  IonCardContent,
-  IonText,
-  IonSpinner,
-  IonButton,
 } from "@ionic/react";
-
-import {
-  searchAnimals,
-  Animal,
-  getDistribution,
-  getAnimalByTaxonId,
-} from "../database/animalDatabase";
-
-import "./Home.css";
+import { Animal, getAnimalByTaxonId } from "../database/animalDatabase";
 import { useNavigate } from "react-router";
+import "./Home.css";
+
+const categories = [
+  { icon: "🐕", label: "Dogs", color: "category-dog" },
+  { icon: "🐈", label: "Cats", color: "category-cat" },
+  { icon: "🦜", label: "Birds", color: "category-bird" },
+  { icon: "🐠", label: "Fish", color: "category-fish" },
+];
 
 const Home: React.FC = () => {
   const navigate = useNavigate();
-
-  const [query, setQuery] = useState("");
-  const [results, setResults] = useState<Animal[]>([]);
-  const [distribution, setDistribution] = useState<Record<number, string[]>>(
-    {},
-  );
-
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-
   const [prediction, setPrediction] = useState<string | null>(null);
-  const [predictionConfidence, setPredictionConfidence] = useState<
-    number | null
-  >(null);
+  const [confidence, setConfidence] = useState<number | null>(null);
   const [identifiedAnimal, setIdentifiedAnimal] = useState<Animal | null>(null);
-
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [identifying, setIdentifying] = useState(false);
 
   useEffect(() => {
-    AnimalAI.modelInfo()
-      .then((info) => {
-        console.log("ANIMAL AI MODEL INFO", JSON.stringify(info, null, 2));
-      })
-      .catch((error) => {
-        console.error("ANIMAL AI MODEL INFO FAILED", error);
-      });
+    AnimalAI.modelInfo().catch((modelError) =>
+      console.error("Animal AI model unavailable", modelError),
+    );
   }, []);
-
-  const fileToBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-
-      reader.onload = () => {
-        if (typeof reader.result !== "string") {
-          reject(new Error("Unable to convert image to Base64"));
-          return;
-        }
-
-        resolve(reader.result);
-      };
-
-      reader.onerror = () => {
-        reject(reader.error ?? new Error("Unable to read image"));
-      };
-
-      reader.readAsDataURL(file);
-    });
-  };
 
   const handlePhotoSelected = async (
     event: React.ChangeEvent<HTMLInputElement>,
   ) => {
     const file = event.target.files?.[0];
-
     if (!file) return;
 
     setError("");
     setPrediction(null);
-    setPredictionConfidence(null);
+    setConfidence(null);
     setIdentifiedAnimal(null);
+    setSelectedImage(URL.createObjectURL(file));
     setIdentifying(true);
 
-    const imageUrl = URL.createObjectURL(file);
-    setSelectedImage(imageUrl);
-
     try {
-      console.log("Animal AI: converting image to Base64...");
-
-      const base64Image = await fileToBase64(file);
-
-      console.log("Animal AI: image converted");
-      console.log("Animal AI: Base64 length:", base64Image.length);
-
-      console.log("Animal AI: running classification...");
-
-      const result = await AnimalAI.classify({
-        image: base64Image,
+      const image = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () =>
+          typeof reader.result === "string"
+            ? resolve(reader.result)
+            : reject(new Error("Unable to read image"));
+        reader.onerror = () =>
+          reject(reader.error ?? new Error("Unable to read image"));
+        reader.readAsDataURL(file);
       });
-
-      console.log("Animal AI RESULT:", JSON.stringify(result, null, 2));
-      setPrediction(`${result.category} — ${result.name}`);
-      if (result.taxonId !== null) {
-        setIdentifiedAnimal(await getAnimalByTaxonId(result.taxonId));
-      }
-      setPredictionConfidence(
+      const result = await AnimalAI.classify({ image });
+      setPrediction(`${result.category} - ${result.name}`);
+      setConfidence(
         typeof result.confidence === "number" ? result.confidence : null,
       );
-    } catch (err) {
-      console.error("Animal AI classification failed:", err);
-
+      if (result.taxonId !== null)
+        setIdentifiedAnimal(await getAnimalByTaxonId(result.taxonId));
+    } catch (classificationError) {
+      console.error("Animal AI classification failed:", classificationError);
       setError(
-        err instanceof Error ? err.message : "Unable to identify the animal.",
+        classificationError instanceof Error
+          ? classificationError.message
+          : "Unable to identify the animal.",
       );
     } finally {
       setIdentifying(false);
-
-      /*
-       * Allow selecting the same file again.
-       */
       event.target.value = "";
     }
   };
-
-  const handleSearch = async (value: string) => {
-    setQuery(value);
-    setError("");
-
-    if (!value.trim()) {
-      setResults([]);
-      setDistribution({});
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      const animals = await searchAnimals(value);
-      setResults(animals);
-    } catch (err) {
-      console.error(err);
-      setError("Unable to search the animal database.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const loadDistribution = async () => {
-      if (results.length === 0) {
-        setDistribution({});
-        return;
-      }
-
-      const entries = await Promise.all(
-        results.map(async (animal) => {
-          try {
-            const areas = await getDistribution(animal.id);
-            return [animal.id, areas] as const;
-          } catch (err) {
-            console.error(
-              `Unable to load distribution for ${animal.scientific_name}`,
-              err,
-            );
-
-            return [animal.id, []] as const;
-          }
-        }),
-      );
-
-      if (!cancelled) {
-        setDistribution(Object.fromEntries(entries));
-      }
-    };
-
-    loadDistribution();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [results]);
 
   return (
     <IonPage>
       <IonHeader>
         <IonToolbar>
-          <IonTitle>🐾 Animal Finder</IonTitle>
+          <IonTitle>Animal Finder</IonTitle>
         </IonToolbar>
       </IonHeader>
-
       <IonContent fullscreen>
-        <div className="animal-home">
-          <IonText>
-            <h1>Animal Finder</h1>
+        <main className="animal-home">
+          <section className="welcome-copy">
+            <p className="eyebrow">SMART PET</p>
+            <h1>
+              Happy pets,
+              <br />
+              happy you.
+            </h1>
+            <p>Discover your pet's breed with one photo.</p>
+          </section>
 
-            <p>
-              Search millions of animals from the offline Catalogue of Life
-              database.
-            </p>
-          </IonText>
+          <section className="category-section" aria-label="Animal categories">
+            <div className="category-heading">
+              <h2>Categories</h2>
+              <span>Explore</span>
+            </div>
+            <div className="category-row">
+              {categories.map((category) => (
+                <div
+                  className={`category-item ${category.color}`}
+                  key={category.label}
+                >
+                  <span>{category.icon}</span>
+                  <small>{category.label}</small>
+                </div>
+              ))}
+            </div>
+          </section>
 
-          <IonSearchbar
-            value={query}
-            placeholder="Search animals..."
-            debounce={500}
-            onIonInput={(event) => handleSearch(event.detail.value ?? "")}
-          />
-
-          <div className="photo-identify">
-            <input
-              id="animal-photo"
-              type="file"
-              accept="image/*"
-              capture="environment"
-              hidden
-              onChange={handlePhotoSelected}
-            />
-
-            <IonButton
-              expand="block"
-              size="large"
-              disabled={identifying}
-              onClick={() => {
-                document.getElementById("animal-photo")?.click();
-              }}
-            >
-              {identifying ? "🧠 Identifying..." : "📷 Identify from photo"}
-            </IonButton>
-
-            <p>
-              {identifying
-                ? "The AI model is analyzing the image..."
-                : "Take a photo or choose one from your device."}
-            </p>
-
+          <section className="photo-identify">
+            <input id="animal-camera" type="file" accept="image/*" capture="environment" hidden onChange={handlePhotoSelected} />
+            <input id="animal-upload" type="file" accept="image/*" hidden onChange={handlePhotoSelected} />
+            <div className="photo-copy">
+              <span className="camera-mark">✦</span>
+              <h2>Meet your pet's match</h2>
+              <p>
+                {identifying
+                  ? "Analyzing your photo..."
+                  : "Take a photo and let AI identify the breed."}
+              </p>
+            </div>
+            <div className="photo-actions">
+              <IonButton size="large" disabled={identifying} onClick={() => document.getElementById("animal-camera")?.click()}>
+                {identifying ? "Identifying..." : "Take a picture"}
+              </IonButton>
+              <IonButton className="upload-button" fill="outline" size="large" disabled={identifying} onClick={() => document.getElementById("animal-upload")?.click()}>
+                Upload a photo
+              </IonButton>
+            </div>
             {selectedImage && (
               <div className="photo-preview">
                 <img src={selectedImage} alt="Selected animal" />
               </div>
             )}
-          </div>
+          </section>
 
           {prediction && (
-            <div className="prediction">
-              <h2>🧠 Identification</h2>
-
-              <h3>{prediction}</h3>
-
-              {predictionConfidence !== null && (
-                <p>Confidence: {Math.round(predictionConfidence * 100)}%</p>
+            <section className="prediction">
+              <p className="eyebrow">IDENTIFIED PET</p>
+              <h2>{prediction}</h2>
+              {confidence !== null && (
+                <p>Confidence: {Math.round(confidence * 100)}%</p>
               )}
-
               {identifiedAnimal && (
                 <IonButton
                   fill="outline"
@@ -268,95 +158,14 @@ const Home: React.FC = () => {
                   Open database record
                 </IonButton>
               )}
-            </div>
+            </section>
           )}
-
-          {loading && (
-            <div className="loading">
-              <IonSpinner />
-              <p>Searching database...</p>
-            </div>
-          )}
-
           {error && (
             <IonText color="danger">
-              <p>{error}</p>
+              <p className="error-message">{error}</p>
             </IonText>
           )}
-
-          {!loading && results.length > 0 && (
-            <div>
-              <IonText>
-                <p>{results.length} result(s)</p>
-              </IonText>
-
-              {results.map((animal) => {
-                const areas = distribution[animal.id] ?? [];
-
-                return (
-                  <IonCard
-                    key={animal.id}
-                    button
-                    onClick={() => navigate(`/animal/${animal.id}`)}
-                  >
-                    <IonCardContent>
-                      {animal.common_name && <h2>{animal.common_name}</h2>}
-
-                      <h3>{animal.scientific_name}</h3>
-
-                      {animal.authorship && (
-                        <p className="authorship">{animal.authorship}</p>
-                      )}
-
-                      <div className="taxonomy">
-                        {animal.kingdom && <span>{animal.kingdom}</span>}
-
-                        {animal.phylum && <span>{animal.phylum}</span>}
-
-                        {animal.class_name && <span>{animal.class_name}</span>}
-
-                        {animal.order_name && <span>{animal.order_name}</span>}
-
-                        {animal.family && <span>{animal.family}</span>}
-
-                        {animal.genus && <span>{animal.genus}</span>}
-                      </div>
-
-                      {areas.length > 0 && (
-                        <div className="distribution">
-                          <h4>🌍 Distribution</h4>
-
-                          <ul>
-                            {areas.slice(0, 10).map((area) => (
-                              <li key={area}>{area}</li>
-                            ))}
-                          </ul>
-
-                          {areas.length > 10 && (
-                            <p>+ {areas.length - 10} more areas</p>
-                          )}
-                        </div>
-                      )}
-
-                      {animal.extinct === 1 && (
-                        <IonText color="danger">
-                          <p>Extinct</p>
-                        </IonText>
-                      )}
-                    </IonCardContent>
-                  </IonCard>
-                );
-              })}
-            </div>
-          )}
-
-          {!loading && query.trim() && results.length === 0 && !error && (
-            <div className="no-results">
-              <h2>No animals found</h2>
-              <p>Try another name.</p>
-            </div>
-          )}
-        </div>
+        </main>
       </IonContent>
     </IonPage>
   );

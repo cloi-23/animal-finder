@@ -198,12 +198,20 @@ public class AnimalAiPlugin extends Plugin {
 
             inputBuffer.rewind();
 
-            int outputCount = tensorElementCount(
-                interpreter.getOutputTensor(0).shape()
-            );
-            float[][] output = new float[1][outputCount];
+            org.tensorflow.lite.Tensor outputTensor =
+                interpreter.getOutputTensor(0);
+            int outputCount = tensorElementCount(outputTensor.shape());
+            ByteBuffer outputBuffer = ByteBuffer.allocateDirect(
+                outputCount * bytesPerElement(outputTensor.dataType())
+            ).order(ByteOrder.nativeOrder());
 
-            interpreter.run(inputBuffer, output);
+            interpreter.run(inputBuffer, outputBuffer);
+            outputBuffer.rewind();
+
+            float[] logits = new float[outputCount];
+            for (int i = 0; i < outputCount; i++) {
+                logits[i] = readOutputValue(outputBuffer, outputTensor);
+            }
 
             /*
              * The model output is treated as logits.
@@ -211,7 +219,6 @@ public class AnimalAiPlugin extends Plugin {
              * Convert logits into proper probabilities
              * using softmax.
              */
-            float[] logits = output[0];
             float[] scores = softmax(logits);
 
             int bestIndex = 0;
@@ -452,6 +459,10 @@ public class AnimalAiPlugin extends Plugin {
     ) {
         if (tensor.dataType() == org.tensorflow.lite.DataType.FLOAT32) {
             return buffer.getFloat();
+        }
+
+        if (tensor.dataType() == org.tensorflow.lite.DataType.INT32) {
+            return buffer.getInt();
         }
 
         int raw = buffer.get();
