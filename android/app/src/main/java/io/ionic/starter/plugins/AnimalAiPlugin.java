@@ -29,10 +29,16 @@ import java.util.Map;
 public class AnimalAiPlugin extends Plugin {
 
     private static final String MODEL_PATH = "camera/oxford_iiit_pet.tflite";
+    private static final String GENERAL_MODEL_PATH = "camera/inat_vision.tflite";
 
     private Interpreter interpreter;
+    private Interpreter generalInterpreter;
     private final List<String> labels = new ArrayList<>();
     private final Map<Integer, Integer> taxonIds = new HashMap<>();
+    private final List<String> generalLabels = new ArrayList<>();
+    private final Map<Integer, Integer> generalTaxonIds = new HashMap<>();
+    private final Map<Integer, Integer> taxonParents = new HashMap<>();
+    private final Map<Integer, String> taxonNames = new HashMap<>();
 
     @PluginMethod
     public void modelInfo(PluginCall call) {
@@ -115,6 +121,17 @@ public class AnimalAiPlugin extends Plugin {
 
             loadBreedLabels();
 
+            InputStream generalInput =
+                getContext().getAssets().open(GENERAL_MODEL_PATH);
+            byte[] generalModelBytes = readAllBytes(generalInput);
+            ByteBuffer generalModelBuffer =
+                ByteBuffer.allocateDirect(generalModelBytes.length)
+                    .order(ByteOrder.nativeOrder());
+            generalModelBuffer.put(generalModelBytes);
+            generalModelBuffer.rewind();
+            generalInterpreter = new Interpreter(generalModelBuffer);
+            loadTaxonomy();
+
             System.out.println(
                 "Animal AI Oxford-IIIT Pet model loaded. Labels: "
                     + labels.size()
@@ -123,12 +140,13 @@ public class AnimalAiPlugin extends Plugin {
         } catch (Exception e) {
             e.printStackTrace();
             interpreter = null;
+            generalInterpreter = null;
         }
     }
 
     @PluginMethod
     public void classify(PluginCall call) {
-        if (interpreter == null) {
+        if (interpreter == null || generalInterpreter == null) {
             call.reject("Animal AI model is not loaded");
             return;
         }
@@ -144,6 +162,13 @@ public class AnimalAiPlugin extends Plugin {
         Bitmap resized = null;
 
         try {
+            JSObject generalResult = classifyGeneral(imageData);
+            String generalCategory = generalResult.getString("category", "Unknown");
+            if (!generalCategory.equals("Dog") && !generalCategory.equals("Cat")) {
+                call.resolve(generalResult);
+                return;
+            }
+
             bitmap = decodeImage(imageData);
 
             if (bitmap == null) {
@@ -416,6 +441,112 @@ public class AnimalAiPlugin extends Plugin {
         if (labels.size() != 37) {
             throw new Exception("Expected 37 breed labels but loaded " + labels.size());
         }
+    }
+
+    private void loadTaxonomy() throws Exception {
+        InputStream input = getContext().getAssets().open("camera/taxonomy.csv");
+        BufferedReader reader = new BufferedReader(new InputStreamReader(input));
+        Map<Integer, String> classNames = new HashMap<>();
+        Map<Integer, Integer> classTaxons = new HashMap<>();
+        String line;
+        int maxClass = -1;
+
+        reader.readLine();
+        while ((line = reader.readLine()) != null) {
+            String[] fields = line.split(",", -1);
+            if (fields.length < 8 || fields[1].isEmpty()) continue;
+
+            int taxonId = Integer.parseInt(fields[1]);
+            int parentId = fields[0].isEmpty() ? 0 : Integer.parseInt(fields[0]);
+            taxonParents.put(taxonId, parentId);
+            taxonNames.put(taxonId, fields[7]);
+
+            if (!fields[3].isEmpty()) {
+                int classId = Integer.parseInt(fields[3]);
+                classNames.put(classId, fields[7]);
+                classTaxons.put(classId, taxonId);
+                maxClass = Math.max(maxClass, classId);
+            }
+        }
+        reader.close();
+
+        generalLabels.clear();
+        generalTaxonIds.clear();
+        for (int classId = 0; classId <= maxClass; classId++) {
+            generalLabels.add(classNames.getOrDefault(classId, "Unknown animal"));
+            if (classTaxons.containsKey(classId)) generalTaxonIds.put(classId, classTaxons.get(classId));
+        }
+    }
+
+    private JSObject classifyGeneral(String imageData) throws Exception {
+        Bitmap bitmap = decodeImage(imageData);
+        if (bitmap == null) throw new Exception("Unable to decode image");
+
+        try {
+            org.tensorflow.lite.Tensor inputTensor = generalInterpreter.getInputTensor(0);
+            int[] shape = inputTensor.shape();
+            Bitmap resized = Bitmap.createScaledBitmap(bitmap, shape[2], shape[1], true);
+            ByteBuffer input = ByteBuffer.allocateDirect(
+                shape[1] * shape[2] * 3 * bytesPerElement(inputTensor.dataType())
+            ).order(ByteOrder.nativeOrder());
+            int[] pixels = new int[shape[1] * shape[2]];
+            resized.getPixels(pixels, 0, shape[2], 0, 0, shape[2], shape[1]);
+            for (int pixel : pixels) {
+                putInputValue(input, inputTensor, ((pixel >> 16) & 0xFF) / 127.5f - 1.0f);
+                putInputValue(input, inputTensor, ((pixel >> 8) & 0xFF) / 127.5f - 1.0f);
+                putInputValue(input, inputTensor, (pixel & 0xFF) / 127.5f - 1.0f);
+            }
+            input.rewind();
+
+            org.tensorflow.lite.Tensor outputTensor = generalInterpreter.getOutputTensor(0);
+            int outputCount = tensorElementCount(outputTensor.shape());
+            ByteBuffer output = ByteBuffer.allocateDirect(
+                outputCount * bytesPerElement(outputTensor.dataType())
+            ).order(ByteOrder.nativeOrder());
+            generalInterpreter.run(input, output);
+            output.rewind();
+
+            float[] scores = new float[outputCount];
+            for (int i = 0; i < outputCount; i++) scores[i] = readOutputValue(output, outputTensor);
+            scores = softmax(scores);
+
+            int bestIndex = 0;
+            for (int i = 1; i < scores.length; i++) {
+                if (scores[i] > scores[bestIndex]) bestIndex = i;
+            }
+
+            int taxonId = generalTaxonIds.containsKey(bestIndex) ? generalTaxonIds.get(bestIndex) : 0;
+            String category = getTaxonomyCategory(taxonId);
+            JSObject result = new JSObject();
+            result.put("classId", bestIndex);
+            result.put("taxonId", taxonId == 0 ? null : taxonId);
+            result.put("name", getGeneralLabel(bestIndex));
+            result.put("category", category);
+            result.put("confidence", scores[bestIndex]);
+            return result;
+        } finally {
+            bitmap.recycle();
+        }
+    }
+
+    private String getTaxonomyCategory(int taxonId) {
+        int current = taxonId;
+        for (int depth = 0; current != 0 && depth < 20; depth++) {
+            String name = taxonNames.getOrDefault(current, "").toLowerCase();
+            if (name.equals("aves")) return "Bird";
+            if (name.equals("insecta")) return "Insect";
+            if (name.equals("arachnida")) return "Arachnid";
+            if (name.contains("actinopterygii") || name.equals("fish")) return "Fish";
+            if (name.equals("canidae")) return "Dog";
+            if (name.equals("felidae")) return "Cat";
+            current = taxonParents.getOrDefault(current, 0);
+        }
+        return "Other animal";
+    }
+
+    private String getGeneralLabel(int classId) {
+        if (classId < 0 || classId >= generalLabels.size()) return "Unknown animal";
+        return generalLabels.get(classId);
     }
 
     private int imageElements(int width, int height) {
