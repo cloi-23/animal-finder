@@ -1,0 +1,75 @@
+name: Train Multi-Group Animal Models
+
+on:
+  workflow_dispatch:
+    inputs:
+      dataset_url:
+        description: "HTTPS URL for a verified tar.gz dataset archive"
+        required: true
+        type: string
+      dataset_sha256:
+        description: "SHA-256 checksum for the dataset archive"
+        required: true
+        type: string
+      epochs:
+        description: "Training epochs per model"
+        required: false
+        default: "8"
+        type: string
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install training dependencies
+        run: python -m pip install --upgrade pip tensorflow==2.16.1 scikit-learn
+
+      - name: Inspect existing iNaturalist model
+        run: |
+          python - <<'PY'
+          import tensorflow as tf
+
+          model = tf.lite.Interpreter(
+              model_path="src/assets/models/INatVision_Small_2_fact256_8bit.tflite"
+          )
+          model.allocate_tensors()
+          print("iNaturalist inputs:", model.get_input_details())
+          print("iNaturalist outputs:", model.get_output_details())
+
+      - name: Download and verify dataset
+        env:
+          DATASET_URL: ${{ inputs.dataset_url }}
+          DATASET_SHA256: ${{ inputs.dataset_sha256 }}
+        run: |
+          mkdir -p training-data
+          curl -L --retry 3 --fail "$DATASET_URL" -o training-data/animals.tar.gz
+          echo "$DATASET_SHA256  training-data/animals.tar.gz" | sha256sum --check
+          tar -xzf training-data/animals.tar.gz -C training-data
+
+      - name: Train gate and specialist models
+        run: |
+          python tools/train_animal_models.py \
+            --data training-data/animals \
+            --output training-output \
+            --epochs "${{ inputs.epochs }}"
+
+      - name: Upload multi-group models
+        uses: actions/upload-artifact@v5
+        with:
+          name: multi-group-animal-models
+          path: training-output/
+          retention-days: 14

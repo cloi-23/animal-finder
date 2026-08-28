@@ -112,15 +112,26 @@ def main() -> None:
     features = base(augmentation(inputs), training=False)
     features = tf.keras.layers.GlobalAveragePooling2D()(features)
     features = tf.keras.layers.Dropout(0.2)(features)
-    classifier = tf.keras.layers.Dense(len(BREEDS), activation="softmax")
+    classifier = tf.keras.layers.Dense(len(BREEDS))
     outputs = classifier(features)
     model = tf.keras.Model(inputs, outputs)
     model.compile(
         optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),
-        loss="sparse_categorical_crossentropy",
+        loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
         metrics=["accuracy"],
     )
     model.fit(train, validation_data=test, epochs=args.epochs)
+
+    # Fine-tune the last backbone layers so the features adapt to pet photos.
+    base.trainable = True
+    for layer in base.layers[:-30]:
+        layer.trainable = False
+    model.compile(
+        optimizer=tf.keras.optimizers.Adam(learning_rate=1e-5),
+        loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
+        metrics=["accuracy"],
+    )
+    model.fit(train, validation_data=test, epochs=max(1, args.epochs // 4))
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     export_inputs = tf.keras.Input(shape=(*IMAGE_SIZE, 3))

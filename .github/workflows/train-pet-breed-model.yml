@@ -1,4 +1,4 @@
-name: Train Pet Breed Model
+name: Train Dog and Cat Breed Model
 
 on:
   workflow_dispatch:
@@ -29,7 +29,7 @@ jobs:
       - name: Install TensorFlow
         run: python -m pip install --upgrade pip tensorflow==2.16.1
 
-      - name: Download Oxford-IIIT Pet dataset
+      - name: Download dog and cat breed dataset
         run: |
           mkdir -p training-data
           curl -L --retry 3 --fail \
@@ -44,7 +44,7 @@ jobs:
           tar -xzf training-data/images.tar.gz -C training-data
           tar -xzf training-data/annotations.tar.gz -C training-data
 
-      - name: Train and convert model
+      - name: Train and convert dog and cat model
         run: |
           python tools/train_pet_breed_model.py \
             --images training-data/images \
@@ -52,7 +52,7 @@ jobs:
             --epochs "${{ inputs.epochs }}" \
             --output training-output/oxford_iiit_pet.tflite
 
-      - name: Upload TFLite model and labels
+      - name: Upload dog and cat TFLite model and labels
         uses: actions/upload-artifact@v5
         with:
           name: oxford-iiit-pet-model
