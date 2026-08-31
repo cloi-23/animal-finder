@@ -163,6 +163,7 @@ public class AnimalAiPlugin extends Plugin {
 
         try {
             JSObject generalResult = classifyGeneral(imageData);
+            System.out.println("ANIMAL_DEBUG_GENERAL=" + generalResult.toString());
             String generalCategory = generalResult.getString("category", "Unknown");
             if (!generalCategory.equals("Dog") && !generalCategory.equals("Cat")) {
                 call.resolve(generalResult);
@@ -517,6 +518,13 @@ public class AnimalAiPlugin extends Plugin {
 
             int taxonId = generalTaxonIds.containsKey(bestIndex) ? generalTaxonIds.get(bestIndex) : 0;
             String category = getTaxonomyCategory(taxonId);
+            if ("Other animal".equals(category)) {
+                String label = getGeneralLabel(bestIndex);
+                String fallbackCategory = getBroadCategory(label);
+                if (!"Other animal".equals(fallbackCategory)) {
+                    category = fallbackCategory;
+                }
+            }
             JSObject result = new JSObject();
             result.put("classId", bestIndex);
             result.put("taxonId", taxonId == 0 ? null : taxonId);
@@ -537,8 +545,17 @@ public class AnimalAiPlugin extends Plugin {
             if (name.equals("insecta")) return "Insect";
             if (name.equals("arachnida")) return "Arachnid";
             if (name.contains("actinopterygii") || name.equals("fish")) return "Fish";
-            if (name.equals("canidae")) return "Dog";
-            if (name.equals("felidae")) return "Cat";
+            if (
+                name.equals("canidae") ||
+                name.contains("canis") ||
+                name.contains("canid")
+            ) return "Dog";
+            if (
+                name.equals("felidae") ||
+                name.contains("felis") ||
+                name.contains("felid") ||
+                name.contains("feline")
+            ) return "Cat";
             current = taxonParents.getOrDefault(current, 0);
         }
         return "Other animal";
@@ -618,6 +635,9 @@ public class AnimalAiPlugin extends Plugin {
          */
         if (
             value.contains("dog") ||
+            value.contains("canis") ||
+            value.contains("canid") ||
+            value.contains("domestic dog") ||
             value.contains("husky") ||
             value.contains("retriever") ||
             value.contains("shepherd") ||
@@ -649,6 +669,11 @@ public class AnimalAiPlugin extends Plugin {
          */
         if (
             value.contains("cat") ||
+            value.contains("felis") ||
+            value.contains("felid") ||
+            value.contains("feline") ||
+            value.contains("kitten") ||
+            value.contains("domestic cat") ||
             value.contains("tabby") ||
             value.contains("siamese") ||
             value.contains("persian")

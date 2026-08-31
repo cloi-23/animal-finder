@@ -60,6 +60,7 @@ const Home: React.FC = () => {
         reader.readAsDataURL(file);
       });
       const result = await AnimalAI.classify({ image });
+      console.log("AnimalAI classify result:", JSON.stringify(result));
       setPrediction(`${result.category} - ${result.name}`);
       setConfidence(
         typeof result.confidence === "number" ? result.confidence : null,
