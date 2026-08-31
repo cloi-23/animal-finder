@@ -541,10 +541,6 @@ public class AnimalAiPlugin extends Plugin {
         int current = taxonId;
         for (int depth = 0; current != 0 && depth < 20; depth++) {
             String name = taxonNames.getOrDefault(current, "").toLowerCase();
-            if (name.equals("aves")) return "Bird";
-            if (name.equals("insecta")) return "Insect";
-            if (name.equals("arachnida")) return "Arachnid";
-            if (name.contains("actinopterygii") || name.equals("fish")) return "Fish";
             if (
                 name.equals("canidae") ||
                 name.contains("canis") ||

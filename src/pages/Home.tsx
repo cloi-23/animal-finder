@@ -16,8 +16,6 @@ import "./Home.css";
 const categories = [
   { icon: "🐕", label: "Dogs", color: "category-dog" },
   { icon: "🐈", label: "Cats", color: "category-cat" },
-  { icon: "🦜", label: "Birds", color: "category-bird" },
-  { icon: "🐠", label: "Fish", color: "category-fish" },
 ];
 
 const Home: React.FC = () => {
