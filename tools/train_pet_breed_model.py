@@ -228,7 +228,11 @@ def build_model() -> tf.keras.Model:
         pooling=None,
     )
 
-    backbone.trainable = False
+    backbone.trainable = True
+
+    # Freeze the early layers
+    for layer in backbone.layers[:-40]:
+        layer.trainable = False
 
     x = backbone(x)
 
@@ -440,14 +444,12 @@ def main() -> None:
 
     model.compile(
         optimizer=tf.keras.optimizers.Adam(
-            learning_rate=0.0003
+            learning_rate=1e-5
         ),
         loss=tf.keras.losses.SparseCategoricalCrossentropy(
             from_logits=True
         ),
-        metrics=[
-            "accuracy"
-        ],
+        metrics=["accuracy"],
     )
 
     # --------------------------------------------------------

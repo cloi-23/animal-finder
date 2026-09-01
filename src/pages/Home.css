@@ -1,235 +1,274 @@
 :root {
-  --pet-ink: #30253d;
-  --pet-muted: #82798d;
-  --pet-lilac: #eee6ff;
-  --pet-purple: #9160dc;
-  --pet-coral: #ff8b72;
-  --pet-yellow: #ffd975;
-  --pet-mint: #ccecdf;
-}
-
-ion-toolbar {
-  --background: #fffafc;
-  --color: var(--pet-ink);
-  --border-width: 0;
-}
-
-ion-title {
-  font-family: Georgia, serif;
-  font-weight: 700;
+  --scanner-bg: #f1f1f1;
+  --scanner-surface: #f7f7f7;
+  --scanner-card: #f2f2f2;
+  --scanner-text: #272b34;
+  --scanner-muted: #6f7078;
+  --scanner-teal: #22aab7;
+  --scanner-teal-dark: #1b6f7d;
+  --scanner-line: #dfe0e5;
+  --scanner-shadow: 0 18px 38px rgb(18 21 28 / 12%);
 }
 
 ion-content {
-  --background: #fffafc;
+  --background: #000;
 }
 
-.animal-home {
-  max-width: 760px;
+.scanner-home {
+  display: flex;
+  max-width: 440px;
+  min-height: 100vh;
   margin: 0 auto;
-  padding: 30px 20px 56px;
-  color: var(--pet-ink);
+  flex-direction: column;
+  background: var(--scanner-bg);
+  color: var(--scanner-text);
+  box-shadow: inset 0 0 0 12px #2b2b2b;
 }
 
-.welcome-copy {
-  padding: 10px 8px 28px;
-}
-
-.eyebrow {
-  margin: 0 0 10px;
-  color: var(--pet-purple);
-  font-size: 12px;
+.scanner-header {
+  padding: 28px 20px 14px;
+  color: var(--scanner-teal);
+  font-size: clamp(2rem, 5vw, 2.7rem);
   font-weight: 800;
-  letter-spacing: 2px;
+  letter-spacing: 0.03em;
 }
 
-.welcome-copy h1 {
-  margin: 0;
-  font-family: Georgia, serif;
-  font-size: clamp(40px, 10vw, 70px);
-  line-height: 0.95;
-  letter-spacing: 0;
-}
-
-.welcome-copy > p:last-child {
-  max-width: 300px;
-  margin: 18px 0 0;
-  color: var(--pet-muted);
-  font-size: 16px;
-  line-height: 1.5;
-}
-
-.category-section {
-  margin-bottom: 24px;
-}
-
-.category-heading {
+.header-content {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin: 0 4px 12px;
+  gap: 12px;
 }
 
-.category-heading h2,
-.photo-copy h2,
-.prediction h2 {
-  margin: 0;
-  font-family: Georgia, serif;
-  font-size: 22px;
+.collection-button {
+  --color: var(--scanner-teal);
+  font-size: 1.5rem;
+  height: 40px;
+  width: 40px;
+  min-height: 40px;
 }
 
-.category-heading span {
-  color: var(--pet-purple);
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.category-row {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
-}
-
-.category-item {
+.category-selector {
   display: flex;
-  min-height: 82px;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  border-radius: 18px;
-  color: var(--pet-ink);
-}
-
-.category-item span {
-  font-size: 29px;
-  line-height: 1;
-}
-
-.category-item small {
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.category-dog {
-  background: var(--pet-lilac);
-}
-.category-cat {
-  background: #ffe5df;
-}
-.category-bird {
-  background: var(--pet-yellow);
-}
-.category-fish {
-  background: var(--pet-mint);
-}
-
-.photo-identify,
-.prediction {
-  border-radius: 26px;
-  padding: 24px;
-}
-
-.photo-identify {
-  background: var(--pet-purple);
-  box-shadow: 0 16px 28px rgb(145 96 220 / 18%);
-}
-
-.photo-copy {
-  color: white;
-  text-align: center;
-}
-
-.camera-mark {
-  display: inline-grid;
-  width: 42px;
-  height: 42px;
-  place-items: center;
-  border-radius: 50%;
-  background: rgb(255 255 255 / 20%);
-  font-size: 22px;
-}
-
-.photo-copy h2 {
-  margin-top: 14px;
-  font-size: 25px;
-}
-
-.photo-copy p {
-  margin: 8px 0 20px;
-  color: #f0eaff;
-  font-size: 14px;
-}
-
-.photo-actions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
   gap: 10px;
+  margin: 0 20px 14px;
+  padding: 0 4px;
 }
 
-.photo-identify ion-button {
-  --background: white;
-  --background-activated: #f5efff;
-  --color: var(--pet-purple);
-  --border-radius: 14px;
-  margin: 0;
+.category-btn {
+  flex: 1;
+  padding: 10px 12px;
+  border: 2px solid var(--scanner-line);
+  border-radius: 12px;
+  background: white;
+  color: var(--scanner-text);
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.category-btn.active {
+  border-color: var(--scanner-teal);
+  background: rgba(34, 170, 183, 0.1);
+  color: var(--scanner-teal-dark);
+}
+
+.scanner-panel {
+  margin: 0 20px;
+  padding: 22px 18px 16px;
+  border-radius: 26px;
+  background: rgba(255 255 255, 0.72);
+  box-shadow: var(--scanner-shadow);
+}
+
+.scanner-panel h2 {
+  margin: 0 0 18px;
+  font-size: 2.1rem;
   font-weight: 800;
+  letter-spacing: -0.03em;
 }
 
-.photo-identify ion-button.upload-button {
-  --background: transparent;
-  --background-activated: rgb(255 255 255 / 12%);
-  --color: white;
-  --border-color: rgb(255 255 255 / 70%);
+.result-ring-wrap {
+  position: relative;
+  display: grid;
+  place-items: center;
+  margin: 14px auto 22px;
+  width: min(86vw, 300px);
+  height: 240px;
 }
 
-.photo-preview {
-  margin-top: 18px;
-  text-align: center;
+.result-ring {
+  position: relative;
+  width: 220px;
+  height: 220px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 10px rgba(255, 255, 255, 0.5);
 }
 
-.photo-preview img {
+.ring-center {
+  position: absolute;
+  inset: 22px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.ring-avatar {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 4px solid #fff;
+  border-radius: 50%;
+  background: #d7edea;
+  box-shadow: 0 8px 12px rgb(0 0 0 / 10%);
+}
+
+.ring-avatar img {
   width: 100%;
-  max-height: 360px;
-  border-radius: 18px;
+  height: 100%;
   object-fit: cover;
 }
 
-.prediction {
-  margin-top: 18px;
-  background: white;
-  box-shadow: 0 8px 24px rgb(48 37 61 / 8%);
+.ring-avatar-main {
+  top: 20px;
+  right: 18px;
+  width: 76px;
+  height: 76px;
 }
 
-.prediction h2 {
-  margin-bottom: 8px;
+.ring-avatar-secondary {
+  left: 22px;
+  bottom: 10px;
+  width: 62px;
+  height: 62px;
+  font-size: 1.8rem;
 }
 
-.prediction > p:not(.eyebrow) {
-  color: var(--pet-muted);
+.ring-avatar-placeholder {
+  font-size: 2.1rem;
 }
 
-.prediction ion-button {
-  --color: var(--pet-purple);
-  --border-color: var(--pet-purple);
+.result-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.result-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 70px;
+  padding: 8px 12px;
+  border: 1px solid var(--scanner-line);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.result-card-primary {
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.result-card-avatar {
+  display: grid;
+  width: 56px;
+  aspect-ratio: 1;
+  place-items: center;
+  border: 3px solid #dff7f8;
+  border-radius: 50%;
+  background: #dff7f8;
+  font-size: 1.8rem;
+  overflow: hidden;
+}
+
+.result-card-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.result-card-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.result-card-copy strong {
+  font-size: 1.1rem;
+}
+
+.result-card-copy span {
+  color: var(--scanner-muted);
+  font-size: 0.95rem;
+}
+
+.warning-copy {
+  margin: 14px 0 8px;
+  font-weight: 700;
+}
+
+.database-button {
+  --background: transparent;
+  --color: var(--scanner-teal-dark);
+  --border-color: var(--scanner-teal-dark);
+  --border-style: solid;
+  --border-width: 1px;
+  margin-top: 10px;
+  width: 100%;
+  font-weight: 700;
+}
+
+.scanner-actions {
+  display: grid;
+  grid-template-columns: 2.3fr 1fr 1fr 1fr 1fr;
+  gap: 10px;
+  align-items: center;
+  margin: 18px 20px 26px;
+  padding: 8px 10px 14px;
+  border-radius: 18px 18px 0 0;
+  background: rgba(255, 255, 255, 0.4);
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 52px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  color: rgba(39, 43, 52, 0.74);
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.tab-active {
+  background: rgba(37, 170, 183, 0.18);
+  color: var(--scanner-teal-dark);
+}
+
+.tab span {
+  font-size: 1.5rem;
 }
 
 .error-message {
-  margin: 16px 4px 0;
+  margin: 0 20px 20px;
   text-align: center;
 }
 
-@media (max-width: 420px) {
-  .animal-home {
-    padding-inline: 16px;
+@media (max-width: 430px) {
+  .scanner-header {
+    padding-top: 22px;
   }
-  .photo-identify,
-  .prediction {
-    padding: 20px;
+
+  .scanner-panel {
+    margin-inline: 14px;
   }
-  .category-item {
-    min-height: 74px;
-  }
-  .photo-actions {
-    grid-template-columns: 1fr;
+
+  .scanner-actions {
+    margin-inline: 14px;
   }
 }

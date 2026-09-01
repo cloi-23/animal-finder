@@ -31,16 +31,10 @@ import java.util.Set;
 public class AnimalAiPlugin extends Plugin {
 
     private static final String MODEL_PATH = "camera/oxford_iiit_pet.tflite";
-    private static final String GENERAL_MODEL_PATH = "camera/inat_vision.tflite";
 
     private Interpreter interpreter;
-    private Interpreter generalInterpreter;
     private final List<String> labels = new ArrayList<>();
     private final Map<Integer, Integer> taxonIds = new HashMap<>();
-    private final List<String> generalLabels = new ArrayList<>();
-    private final Map<Integer, Integer> generalTaxonIds = new HashMap<>();
-    private final Map<Integer, Integer> taxonParents = new HashMap<>();
-    private final Map<Integer, String> taxonNames = new HashMap<>();
     private static final Set<String> DOG_BREEDS = new HashSet<>(Arrays.asList(
         "American Bulldog",
         "American Pit Bull Terrier",
@@ -146,24 +140,6 @@ public class AnimalAiPlugin extends Plugin {
         super.load();
 
         try {
-            InputStream generalInput =
-                getContext().getAssets().open(GENERAL_MODEL_PATH);
-            byte[] generalModelBytes = readAllBytes(generalInput);
-            ByteBuffer generalModelBuffer =
-                ByteBuffer.allocateDirect(generalModelBytes.length)
-                    .order(ByteOrder.nativeOrder());
-            generalModelBuffer.put(generalModelBytes);
-            generalModelBuffer.rewind();
-            generalInterpreter = new Interpreter(generalModelBuffer);
-            loadTaxonomy();
-            System.out.println("Animal AI general model loaded.");
-        } catch (Exception e) {
-            e.printStackTrace();
-            generalInterpreter = null;
-            System.out.println("Animal AI general model unavailable: " + e.getMessage());
-        }
-
-        try {
             InputStream input =
                 getContext().getAssets().open(
                     MODEL_PATH
@@ -196,7 +172,7 @@ public class AnimalAiPlugin extends Plugin {
 
     @PluginMethod
     public void classify(PluginCall call) {
-        if (generalInterpreter == null) {
+        if (interpreter == null) {
             call.reject("Animal AI model is not loaded");
             return;
         }
@@ -212,14 +188,6 @@ public class AnimalAiPlugin extends Plugin {
         Bitmap resized = null;
 
         try {
-            JSObject generalResult = classifyGeneral(imageData);
-            System.out.println("ANIMAL_DEBUG_GENERAL=" + generalResult.toString());
-            String generalCategory = generalResult.getString("category", "Unknown");
-            if (interpreter == null || (!generalCategory.equals("Dog") && !generalCategory.equals("Cat"))) {
-                call.resolve(generalResult);
-                return;
-            }
-
             bitmap = decodeImage(imageData);
 
             if (bitmap == null) {
@@ -313,18 +281,7 @@ public class AnimalAiPlugin extends Plugin {
                 animalName = "Unknown animal";
             }
 
-            String category = detectBreedCategory(animalName);
-
-            JSObject result = new JSObject();
-
-            result.put("classId", bestIndex);
-            result.put("taxonId", taxonIds.get(bestIndex));
-            result.put("name", animalName);
-            result.put("category", category);
-            result.put("confidence", bestScore);
-
             JSArray predictions = new JSArray();
-
             Integer[] indices = new Integer[scores.length];
 
             for (int i = 0; i < scores.length; i++) {
@@ -369,6 +326,18 @@ public class AnimalAiPlugin extends Plugin {
             }
 
             result.put("predictions", predictions);
+
+            if (!"Dog".equals(category) && !"Cat".equals(category)) {
+                JSObject fallback = new JSObject();
+                fallback.put("classId", bestIndex);
+                fallback.put("taxonId", taxonIds.get(bestIndex));
+                fallback.put("name", "Unknown");
+                fallback.put("category", "Unknown");
+                fallback.put("confidence", bestScore);
+                fallback.put("predictions", predictions);
+                call.resolve(fallback);
+                return;
+            }
 
             System.out.println(
                 "Animal AI prediction: "
@@ -494,124 +463,6 @@ public class AnimalAiPlugin extends Plugin {
         }
     }
 
-    private void loadTaxonomy() throws Exception {
-        InputStream input = getContext().getAssets().open("camera/taxonomy.csv");
-        BufferedReader reader = new BufferedReader(new InputStreamReader(input));
-        Map<Integer, String> classNames = new HashMap<>();
-        Map<Integer, Integer> classTaxons = new HashMap<>();
-        String line;
-        int maxClass = -1;
-
-        reader.readLine();
-        while ((line = reader.readLine()) != null) {
-            String[] fields = line.split(",", -1);
-            if (fields.length < 8 || fields[1].isEmpty()) continue;
-
-            int taxonId = Integer.parseInt(fields[1]);
-            int parentId = fields[0].isEmpty() ? 0 : Integer.parseInt(fields[0]);
-            taxonParents.put(taxonId, parentId);
-            taxonNames.put(taxonId, fields[7]);
-
-            if (!fields[3].isEmpty()) {
-                int classId = Integer.parseInt(fields[3]);
-                classNames.put(classId, fields[7]);
-                classTaxons.put(classId, taxonId);
-                maxClass = Math.max(maxClass, classId);
-            }
-        }
-        reader.close();
-
-        generalLabels.clear();
-        generalTaxonIds.clear();
-        for (int classId = 0; classId <= maxClass; classId++) {
-            generalLabels.add(classNames.getOrDefault(classId, "Unknown animal"));
-            if (classTaxons.containsKey(classId)) generalTaxonIds.put(classId, classTaxons.get(classId));
-        }
-    }
-
-    private JSObject classifyGeneral(String imageData) throws Exception {
-        Bitmap bitmap = decodeImage(imageData);
-        if (bitmap == null) throw new Exception("Unable to decode image");
-
-        try {
-            org.tensorflow.lite.Tensor inputTensor = generalInterpreter.getInputTensor(0);
-            int[] shape = inputTensor.shape();
-            Bitmap resized = Bitmap.createScaledBitmap(bitmap, shape[2], shape[1], true);
-            ByteBuffer input = ByteBuffer.allocateDirect(
-                shape[1] * shape[2] * 3 * bytesPerElement(inputTensor.dataType())
-            ).order(ByteOrder.nativeOrder());
-            int[] pixels = new int[shape[1] * shape[2]];
-            resized.getPixels(pixels, 0, shape[2], 0, 0, shape[2], shape[1]);
-            for (int pixel : pixels) {
-                putInputValue(input, inputTensor, ((pixel >> 16) & 0xFF) / 127.5f - 1.0f);
-                putInputValue(input, inputTensor, ((pixel >> 8) & 0xFF) / 127.5f - 1.0f);
-                putInputValue(input, inputTensor, (pixel & 0xFF) / 127.5f - 1.0f);
-            }
-            input.rewind();
-
-            org.tensorflow.lite.Tensor outputTensor = generalInterpreter.getOutputTensor(0);
-            int outputCount = tensorElementCount(outputTensor.shape());
-            ByteBuffer output = ByteBuffer.allocateDirect(
-                outputCount * bytesPerElement(outputTensor.dataType())
-            ).order(ByteOrder.nativeOrder());
-            generalInterpreter.run(input, output);
-            output.rewind();
-
-            float[] scores = new float[outputCount];
-            for (int i = 0; i < outputCount; i++) scores[i] = readOutputValue(output, outputTensor);
-            scores = softmax(scores);
-
-            int bestIndex = 0;
-            for (int i = 1; i < scores.length; i++) {
-                if (scores[i] > scores[bestIndex]) bestIndex = i;
-            }
-
-            int taxonId = generalTaxonIds.containsKey(bestIndex) ? generalTaxonIds.get(bestIndex) : 0;
-            String category = getTaxonomyCategory(taxonId);
-            if ("Other animal".equals(category)) {
-                String label = getGeneralLabel(bestIndex);
-                String fallbackCategory = getBroadCategory(label);
-                if (!"Other animal".equals(fallbackCategory)) {
-                    category = fallbackCategory;
-                }
-            }
-            JSObject result = new JSObject();
-            result.put("classId", bestIndex);
-            result.put("taxonId", taxonId == 0 ? null : taxonId);
-            result.put("name", getGeneralLabel(bestIndex));
-            result.put("category", category);
-            result.put("confidence", scores[bestIndex]);
-            return result;
-        } finally {
-            bitmap.recycle();
-        }
-    }
-
-    private String getTaxonomyCategory(int taxonId) {
-        int current = taxonId;
-        for (int depth = 0; current != 0 && depth < 20; depth++) {
-            String name = taxonNames.getOrDefault(current, "").toLowerCase();
-            if (
-                name.equals("canidae") ||
-                name.contains("canis") ||
-                name.contains("canid")
-            ) return "Dog";
-            if (
-                name.equals("felidae") ||
-                name.contains("felis") ||
-                name.contains("felid") ||
-                name.contains("feline")
-            ) return "Cat";
-            current = taxonParents.getOrDefault(current, 0);
-        }
-        return "Other animal";
-    }
-
-    private String getGeneralLabel(int classId) {
-        if (classId < 0 || classId >= generalLabels.size()) return "Unknown animal";
-        return generalLabels.get(classId);
-    }
-
     private int imageElements(int width, int height) {
         return width * height;
     }
@@ -679,233 +530,22 @@ public class AnimalAiPlugin extends Plugin {
         }
 
         String value = label.trim();
-        if (DOG_BREEDS.contains(value) || CAT_BREEDS.contains(value)) {
-            return DOG_BREEDS.contains(value) ? "Dog" : "Cat";
-        }
-
-        return getBroadCategory(value);
-    }
-
-    private String getBroadCategory(String label) {
-        String value = label.toLowerCase();
-
-        /*
-         * Dogs
-         */
-        if (
-            value.contains("dog") ||
-            value.contains("canis") ||
-            value.contains("canid") ||
-            value.contains("domestic dog") ||
-            value.contains("husky") ||
-            value.contains("retriever") ||
-            value.contains("shepherd") ||
-            value.contains("terrier") ||
-            value.contains("spaniel") ||
-            value.contains("poodle") ||
-            value.contains("collie") ||
-            value.contains("beagle") ||
-            value.contains("boxer") ||
-            value.contains("rottweiler") ||
-            value.contains("chihuahua") ||
-            value.contains("dalmatian") ||
-            value.contains("doberman") ||
-            value.contains("mastiff") ||
-            value.contains("malamute") ||
-            value.contains("samoyed") ||
-            value.contains("pomeranian") ||
-            value.contains("corgi") ||
-            value.contains("great dane") ||
-            value.contains("saint bernard") ||
-            value.contains("newfoundland") ||
-            value.contains("schipperke")
-        ) {
+        if (DOG_BREEDS.contains(value)) {
             return "Dog";
         }
-
-        /*
-         * Cats
-         */
-        if (
-            value.contains("cat") ||
-            value.contains("felis") ||
-            value.contains("felid") ||
-            value.contains("feline") ||
-            value.contains("kitten") ||
-            value.contains("domestic cat") ||
-            value.contains("tabby") ||
-            value.contains("siamese") ||
-            value.contains("persian")
-        ) {
+        if (CAT_BREEDS.contains(value)) {
             return "Cat";
         }
 
-        /*
-         * Birds
-         */
-        if (
-            value.contains("bird") ||
-            value.contains("eagle") ||
-            value.contains("owl") ||
-            value.contains("hawk") ||
-            value.contains("falcon") ||
-            value.contains("parrot") ||
-            value.contains("macaw") ||
-            value.contains("cockatoo") ||
-            value.contains("penguin") ||
-            value.contains("robin") ||
-            value.contains("sparrow") ||
-            value.contains("finch") ||
-            value.contains("jay") ||
-            value.contains("crow") ||
-            value.contains("raven") ||
-            value.contains("hen") ||
-            value.contains("chicken") ||
-            value.contains("duck") ||
-            value.contains("goose") ||
-            value.contains("swan") ||
-            value.contains("flamingo") ||
-            value.contains("ostrich")
-        ) {
-            return "Bird";
+        String normalized = value.toLowerCase();
+        if (normalized.contains("dog")) {
+            return "Dog";
+        }
+        if (normalized.contains("cat")) {
+            return "Cat";
         }
 
-        /*
-         * Horses
-         */
-        if (
-            value.contains("horse") ||
-            value.contains("pony") ||
-            value.contains("zebra")
-        ) {
-            return "Horse";
-        }
-
-        /*
-         * Cows
-         */
-        if (
-            value.contains("cow") ||
-            value.contains("ox") ||
-            value.contains("bull")
-        ) {
-            return "Cattle";
-        }
-
-        /*
-         * Pigs
-         */
-        if (
-            value.contains("pig") ||
-            value.contains("boar")
-        ) {
-            return "Pig";
-        }
-
-        /*
-         * Sheep and goats
-         */
-        if (
-            value.contains("sheep") ||
-            value.contains("ram") ||
-            value.contains("goat")
-        ) {
-            return "Sheep/Goat";
-        }
-
-        /*
-         * Big cats
-         */
-        if (
-            value.contains("lion") ||
-            value.contains("tiger") ||
-            value.contains("leopard") ||
-            value.contains("jaguar") ||
-            value.contains("cheetah")
-        ) {
-            return "Wild cat";
-        }
-
-        /*
-         * Bears
-         */
-        if (value.contains("bear")) {
-            return "Bear";
-        }
-
-        /*
-         * Reptiles
-         */
-        if (
-            value.contains("snake") ||
-            value.contains("lizard") ||
-            value.contains("gecko") ||
-            value.contains("iguana") ||
-            value.contains("turtle") ||
-            value.contains("tortoise") ||
-            value.contains("crocodile") ||
-            value.contains("alligator") ||
-            value.contains("chameleon")
-        ) {
-            return "Reptile";
-        }
-
-        /*
-         * Amphibians
-         */
-        if (
-            value.contains("frog") ||
-            value.contains("toad") ||
-            value.contains("salamander")
-        ) {
-            return "Amphibian";
-        }
-
-        /*
-         * Fish
-         */
-        if (
-            value.contains("fish") ||
-            value.contains("shark") ||
-            value.contains("ray") ||
-            value.contains("eel") ||
-            value.contains("trout") ||
-            value.contains("salmon")
-        ) {
-            return "Fish";
-        }
-
-        /*
-         * Insects
-         */
-        if (
-            value.contains("butterfly") ||
-            value.contains("moth") ||
-            value.contains("bee") ||
-            value.contains("wasp") ||
-            value.contains("ant") ||
-            value.contains("beetle") ||
-            value.contains("dragonfly") ||
-            value.contains("grasshopper") ||
-            value.contains("cricket") ||
-            value.contains("mosquito") ||
-            value.contains("fly")
-        ) {
-            return "Insect";
-        }
-
-        /*
-         * Spiders and other arachnids
-         */
-        if (
-            value.contains("spider") ||
-            value.contains("scorpion") ||
-            value.contains("tick")
-        ) {
-            return "Arachnid";
-        }
-
-        return "Animal";
+        return "Unknown";
     }
 
     private byte[] readAllBytes(InputStream input) throws Exception {

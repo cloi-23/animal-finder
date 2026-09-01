@@ -24,16 +24,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Download animal database
-        run: |
-          mkdir -p public/database
-          gh release download database-v1 \
-            --repo "${{ github.repository }}" \
-            --pattern "animals_mobile.sqlite" \
-            --dir public/database
-        env:
-          GH_TOKEN: ${{ github.token }}
-
       - name: Build web app
         run: npm run build
 
@@ -54,13 +44,6 @@ jobs:
             --dir android/app/src/main/assets/camera
         env:
           GH_TOKEN: ${{ github.token }}
-
-      - name: Include existing iNaturalist model
-        run: |
-          cp src/assets/models/INatVision_Small_2_fact256_8bit.tflite \
-            android/app/src/main/assets/camera/inat_vision.tflite
-          cp src/assets/models/taxonomy.csv \
-            android/app/src/main/assets/camera/taxonomy.csv
 
       - name: Sync Capacitor
         run: npx cap sync android
