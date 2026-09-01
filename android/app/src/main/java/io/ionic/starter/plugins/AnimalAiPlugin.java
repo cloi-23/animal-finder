@@ -22,8 +22,10 @@ import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @CapacitorPlugin(name = "AnimalAI")
 public class AnimalAiPlugin extends Plugin {
@@ -39,6 +41,47 @@ public class AnimalAiPlugin extends Plugin {
     private final Map<Integer, Integer> generalTaxonIds = new HashMap<>();
     private final Map<Integer, Integer> taxonParents = new HashMap<>();
     private final Map<Integer, String> taxonNames = new HashMap<>();
+    private static final Set<String> DOG_BREEDS = new HashSet<>(Arrays.asList(
+        "American Bulldog",
+        "American Pit Bull Terrier",
+        "Basset Hound",
+        "Beagle",
+        "Boxer",
+        "Chihuahua",
+        "English Cocker Spaniel",
+        "English Setter",
+        "German Shorthaired",
+        "Great Pyrenees",
+        "Havanese",
+        "Japanese Chin",
+        "Keeshond",
+        "Leonberger",
+        "Miniature Pinscher",
+        "Newfoundland",
+        "Pomeranian",
+        "Pug",
+        "Saint Bernard",
+        "Samoyed",
+        "Scottish Terrier",
+        "Shiba Inu",
+        "Staffordshire Bull Terrier",
+        "Wheaten Terrier",
+        "Yorkshire Terrier"
+    ));
+    private static final Set<String> CAT_BREEDS = new HashSet<>(Arrays.asList(
+        "Abyssinian",
+        "Bengal",
+        "Birman",
+        "Bombay",
+        "British Shorthair",
+        "Egyptian Mau",
+        "Maine Coon",
+        "Persian",
+        "Ragdoll",
+        "Russian Blue",
+        "Siamese",
+        "Sphynx"
+    ));
 
     @PluginMethod
     public void modelInfo(PluginCall call) {
@@ -103,6 +146,24 @@ public class AnimalAiPlugin extends Plugin {
         super.load();
 
         try {
+            InputStream generalInput =
+                getContext().getAssets().open(GENERAL_MODEL_PATH);
+            byte[] generalModelBytes = readAllBytes(generalInput);
+            ByteBuffer generalModelBuffer =
+                ByteBuffer.allocateDirect(generalModelBytes.length)
+                    .order(ByteOrder.nativeOrder());
+            generalModelBuffer.put(generalModelBytes);
+            generalModelBuffer.rewind();
+            generalInterpreter = new Interpreter(generalModelBuffer);
+            loadTaxonomy();
+            System.out.println("Animal AI general model loaded.");
+        } catch (Exception e) {
+            e.printStackTrace();
+            generalInterpreter = null;
+            System.out.println("Animal AI general model unavailable: " + e.getMessage());
+        }
+
+        try {
             InputStream input =
                 getContext().getAssets().open(
                     MODEL_PATH
@@ -118,35 +179,24 @@ public class AnimalAiPlugin extends Plugin {
             modelBuffer.rewind();
 
             interpreter = new Interpreter(modelBuffer);
-
             loadBreedLabels();
-
-            InputStream generalInput =
-                getContext().getAssets().open(GENERAL_MODEL_PATH);
-            byte[] generalModelBytes = readAllBytes(generalInput);
-            ByteBuffer generalModelBuffer =
-                ByteBuffer.allocateDirect(generalModelBytes.length)
-                    .order(ByteOrder.nativeOrder());
-            generalModelBuffer.put(generalModelBytes);
-            generalModelBuffer.rewind();
-            generalInterpreter = new Interpreter(generalModelBuffer);
-            loadTaxonomy();
 
             System.out.println(
                 "Animal AI Oxford-IIIT Pet model loaded. Labels: "
                     + labels.size()
             );
-
         } catch (Exception e) {
-            e.printStackTrace();
             interpreter = null;
-            generalInterpreter = null;
+            System.out.println(
+                "Animal AI breed model unavailable. Falling back to general classification: "
+                    + e.getMessage()
+            );
         }
     }
 
     @PluginMethod
     public void classify(PluginCall call) {
-        if (interpreter == null || generalInterpreter == null) {
+        if (generalInterpreter == null) {
             call.reject("Animal AI model is not loaded");
             return;
         }
@@ -165,7 +215,7 @@ public class AnimalAiPlugin extends Plugin {
             JSObject generalResult = classifyGeneral(imageData);
             System.out.println("ANIMAL_DEBUG_GENERAL=" + generalResult.toString());
             String generalCategory = generalResult.getString("category", "Unknown");
-            if (!generalCategory.equals("Dog") && !generalCategory.equals("Cat")) {
+            if (interpreter == null || (!generalCategory.equals("Dog") && !generalCategory.equals("Cat"))) {
                 call.resolve(generalResult);
                 return;
             }
@@ -263,7 +313,7 @@ public class AnimalAiPlugin extends Plugin {
                 animalName = "Unknown animal";
             }
 
-            String category = getBroadCategory(animalName);
+            String category = detectBreedCategory(animalName);
 
             JSObject result = new JSObject();
 
@@ -301,7 +351,7 @@ public class AnimalAiPlugin extends Plugin {
                 prediction.put("classId", classId);
                 prediction.put("taxonId", taxonIds.get(classId));
                 prediction.put("label", label);
-                prediction.put("category", getBroadCategory(label));
+                prediction.put("category", detectBreedCategory(label));
                 prediction.put("confidence", score);
 
                 predictions.put(prediction);
@@ -439,8 +489,8 @@ public class AnimalAiPlugin extends Plugin {
 
         reader.close();
 
-        if (labels.size() != 37) {
-            throw new Exception("Expected 37 breed labels but loaded " + labels.size());
+        if (labels.isEmpty()) {
+            throw new Exception("No breed labels were loaded");
         }
     }
 
@@ -621,6 +671,19 @@ public class AnimalAiPlugin extends Plugin {
         }
 
         return labels.get(classId);
+    }
+
+    private String detectBreedCategory(String label) {
+        if (label == null || label.trim().isEmpty()) {
+            return "Unknown";
+        }
+
+        String value = label.trim();
+        if (DOG_BREEDS.contains(value) || CAT_BREEDS.contains(value)) {
+            return DOG_BREEDS.contains(value) ? "Dog" : "Cat";
+        }
+
+        return getBroadCategory(value);
     }
 
     private String getBroadCategory(String label) {
