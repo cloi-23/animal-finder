@@ -251,6 +251,7 @@ def build_model() -> tf.keras.Model:
         (3, 3),
         padding="same",
         activation="relu",
+        kernel_regularizer=tf.keras.regularizers.l2(1e-4),
     )(x)
 
     x = tf.keras.layers.BatchNormalization()(x)
@@ -266,6 +267,7 @@ def build_model() -> tf.keras.Model:
         (3, 3),
         padding="same",
         activation="relu",
+        kernel_regularizer=tf.keras.regularizers.l2(1e-4),
     )(x)
 
     x = tf.keras.layers.BatchNormalization()(x)
@@ -281,6 +283,7 @@ def build_model() -> tf.keras.Model:
         (3, 3),
         padding="same",
         activation="relu",
+        kernel_regularizer=tf.keras.regularizers.l2(1e-4),
     )(x)
 
     x = tf.keras.layers.BatchNormalization()(x)
@@ -296,6 +299,7 @@ def build_model() -> tf.keras.Model:
         (3, 3),
         padding="same",
         activation="relu",
+        kernel_regularizer=tf.keras.regularizers.l2(1e-4),
     )(x)
 
     x = tf.keras.layers.BatchNormalization()(x)
@@ -309,7 +313,7 @@ def build_model() -> tf.keras.Model:
     x = tf.keras.layers.GlobalAveragePooling2D()(x)
 
     x = tf.keras.layers.Dropout(
-        0.40
+        0.50
     )(x)
 
     # --------------------------------------------------------
@@ -360,7 +364,7 @@ def main() -> None:
     parser.add_argument(
         "--epochs",
         type=int,
-        default=30,
+        default=100,
     )
 
     args = parser.parse_args()
@@ -515,7 +519,7 @@ def main() -> None:
 
     model.compile(
         optimizer=tf.keras.optimizers.Adam(
-            learning_rate=0.001
+            learning_rate=0.0003
         ),
         loss=tf.keras.losses.SparseCategoricalCrossentropy(
             from_logits=True
@@ -531,16 +535,16 @@ def main() -> None:
 
     early_stopping = tf.keras.callbacks.EarlyStopping(
         monitor="val_accuracy",
-        patience=5,
+        patience=8,
         mode="max",
         restore_best_weights=True,
     )
 
     reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(
         monitor="val_loss",
-        factor=0.3,
-        patience=2,
-        min_lr=1e-6,
+        factor=0.5,
+        patience=3,
+        min_lr=1e-5,
     )
 
     # --------------------------------------------------------
@@ -727,7 +731,11 @@ def main() -> None:
         export_model
     )
 
+    # Keep the model Float32.
     converter.optimizations = []
+
+    # Disable the newer MLIR-based converter.
+    converter.experimental_new_converter = False
 
     tflite_model = converter.convert()
 
