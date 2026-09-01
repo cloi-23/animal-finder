@@ -22,7 +22,9 @@ jobs:
           python-version: "3.11"
 
       - name: Install TensorFlow
-        run: python -m pip install --upgrade pip tensorflow==2.16.1
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "tensorflow==2.15.1"
 
       - name: Download dogs and cats breed dataset
         run: |

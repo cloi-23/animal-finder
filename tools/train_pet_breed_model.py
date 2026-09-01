@@ -206,119 +206,40 @@ def build_model() -> tf.keras.Model:
     )
 
     # --------------------------------------------------------
-    # PREPROCESSING
+    # Better backbone: pretrained MobileNetV2 on ImageNet.
     #
-    # Input from camera/image:
-    #
-    #     0 .. 255
-    #
-    # becomes:
-    #
-    #     -1 .. 1
-    #
-    # This layer is INSIDE the model and therefore also
-    # exists inside the exported TFLite model.
+    # Input from camera/image stays in the standard 0..255 range.
+    # The MobileNetV2 preprocessing matches the ImageNet weights.
     # --------------------------------------------------------
 
-    x = tf.keras.layers.Rescaling(
-        scale=1.0 / 127.5,
-        offset=-1.0,
+    x = tf.keras.layers.Lambda(
+        lambda image: tf.keras.applications.mobilenet_v2.preprocess_input(image),
         name="preprocess",
     )(inputs)
 
-    # --------------------------------------------------------
-    # Data augmentation
-    # --------------------------------------------------------
+    backbone = tf.keras.applications.MobileNetV2(
+        input_shape=(
+            IMAGE_SIZE[0],
+            IMAGE_SIZE[1],
+            3,
+        ),
+        include_top=False,
+        weights="imagenet",
+        pooling=None,
+    )
 
-    x = tf.keras.layers.RandomFlip(
-        "horizontal"
+    backbone.trainable = False
+
+    x = backbone(x)
+
+    x = tf.keras.layers.GlobalAveragePooling2D(
+        name="feature_pool",
     )(x)
-
-    x = tf.keras.layers.RandomRotation(
-        0.08
-    )(x)
-
-    x = tf.keras.layers.RandomZoom(
-        0.10
-    )(x)
-
-    # --------------------------------------------------------
-    # CNN BLOCK 1
-    # --------------------------------------------------------
-
-    x = tf.keras.layers.Conv2D(
-        32,
-        (3, 3),
-        padding="same",
-        activation="relu",
-        kernel_regularizer=tf.keras.regularizers.l2(1e-4),
-    )(x)
-
-    x = tf.keras.layers.BatchNormalization()(x)
-
-    x = tf.keras.layers.MaxPooling2D()(x)
-
-    # --------------------------------------------------------
-    # CNN BLOCK 2
-    # --------------------------------------------------------
-
-    x = tf.keras.layers.Conv2D(
-        64,
-        (3, 3),
-        padding="same",
-        activation="relu",
-        kernel_regularizer=tf.keras.regularizers.l2(1e-4),
-    )(x)
-
-    x = tf.keras.layers.BatchNormalization()(x)
-
-    x = tf.keras.layers.MaxPooling2D()(x)
-
-    # --------------------------------------------------------
-    # CNN BLOCK 3
-    # --------------------------------------------------------
-
-    x = tf.keras.layers.Conv2D(
-        128,
-        (3, 3),
-        padding="same",
-        activation="relu",
-        kernel_regularizer=tf.keras.regularizers.l2(1e-4),
-    )(x)
-
-    x = tf.keras.layers.BatchNormalization()(x)
-
-    x = tf.keras.layers.MaxPooling2D()(x)
-
-    # --------------------------------------------------------
-    # CNN BLOCK 4
-    # --------------------------------------------------------
-
-    x = tf.keras.layers.Conv2D(
-        256,
-        (3, 3),
-        padding="same",
-        activation="relu",
-        kernel_regularizer=tf.keras.regularizers.l2(1e-4),
-    )(x)
-
-    x = tf.keras.layers.BatchNormalization()(x)
-
-    x = tf.keras.layers.MaxPooling2D()(x)
-
-    # --------------------------------------------------------
-    # Feature extraction
-    # --------------------------------------------------------
-
-    x = tf.keras.layers.GlobalAveragePooling2D()(x)
 
     x = tf.keras.layers.Dropout(
-        0.50
+        0.50,
+        name="dropout",
     )(x)
-
-    # --------------------------------------------------------
-    # 37 Oxford-IIIT Pet classes
-    # --------------------------------------------------------
 
     outputs = tf.keras.layers.Dense(
         len(BREEDS),
@@ -611,109 +532,12 @@ def main() -> None:
     # --------------------------------------------------------
     # EXPORT
     #
-    # The training model already contains:
-    #
-    #     0..255 -> -1..1
-    #
-    # and augmentation layers.
-    #
-    # For TFLite we create an inference model without
-    # random augmentation.
+    # The MobileNetV2 backbone is already an inference model.
+    # We export the trained model directly to keep the graph simple
+    # and avoid unsupported random augmentation layers.
     # --------------------------------------------------------
 
-    export_inputs = tf.keras.Input(
-        shape=(
-            IMAGE_SIZE[0],
-            IMAGE_SIZE[1],
-            3,
-        ),
-        dtype=tf.float32,
-        name="image",
-    )
-
-    # Same preprocessing as training.
-    export_x = tf.keras.layers.Rescaling(
-        scale=1.0 / 127.5,
-        offset=-1.0,
-        name="preprocess",
-    )(export_inputs)
-
-    # Reuse the trained convolutional layers.
-    #
-    # The trained model layers are:
-    #
-    # preprocess
-    # augmentation
-    # conv...
-    #
-    # We deliberately skip augmentation during inference.
-
-    x = model.get_layer(
-        "conv2d"
-    )(export_x)
-
-    x = model.get_layer(
-        "batch_normalization"
-    )(x)
-
-    x = model.get_layer(
-        "max_pooling2d"
-    )(x)
-
-    x = model.get_layer(
-        "conv2d_1"
-    )(x)
-
-    x = model.get_layer(
-        "batch_normalization_1"
-    )(x)
-
-    x = model.get_layer(
-        "max_pooling2d_1"
-    )(x)
-
-    x = model.get_layer(
-        "conv2d_2"
-    )(x)
-
-    x = model.get_layer(
-        "batch_normalization_2"
-    )(x)
-
-    x = model.get_layer(
-        "max_pooling2d_2"
-    )(x)
-
-    x = model.get_layer(
-        "conv2d_3"
-    )(x)
-
-    x = model.get_layer(
-        "batch_normalization_3"
-    )(x)
-
-    x = model.get_layer(
-        "max_pooling2d_3"
-    )(x)
-
-    x = model.get_layer(
-        "global_average_pooling2d"
-    )(x)
-
-    # During inference Dropout is disabled.
-    x = model.get_layer(
-        "dropout"
-    )(x, training=False)
-
-    outputs = model.get_layer(
-        "logits"
-    )(x)
-
-    export_model = tf.keras.Model(
-        export_inputs,
-        outputs,
-        name="oxford_iiit_pet_inference",
-    )
+    export_model = model
 
     # --------------------------------------------------------
     # Convert to TFLite
