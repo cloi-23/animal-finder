@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import pathlib
 import random
+from typing import Sequence
 
 import tensorflow as tf
 
@@ -58,6 +59,7 @@ IMAGE_SIZE = (224, 224)
 BATCH_SIZE = 32
 AUTOTUNE = tf.data.AUTOTUNE
 SEED = 42
+UNKNOWN_LABEL = "Unknown"
 
 
 # ============================================================
@@ -98,6 +100,40 @@ def read_split(
     return paths, labels
 
 
+def read_unknown_images(
+    image_dir: pathlib.Path,
+) -> list[pathlib.Path]:
+
+    extensions = {".jpg", ".jpeg", ".png"}
+
+    return sorted(
+        path
+        for path in image_dir.rglob("*")
+        if path.is_file() and path.suffix.lower() in extensions
+    )
+
+
+def split_items(
+    paths: Sequence[pathlib.Path | str],
+    labels: Sequence[int],
+    validation_fraction: float = 0.10,
+) -> tuple[list[pathlib.Path | str], list[int], list[pathlib.Path | str], list[int]]:
+
+    items = list(zip(paths, labels))
+    random.Random(SEED).shuffle(items)
+
+    split_index = max(1, int(len(items) * (1 - validation_fraction)))
+    train_items = items[:split_index]
+    validation_items = items[split_index:]
+
+    return (
+        [item[0] for item in train_items],
+        [item[1] for item in train_items],
+        [item[0] for item in validation_items],
+        [item[1] for item in validation_items],
+    )
+
+
 # ============================================================
 # Load image
 #
@@ -136,13 +172,27 @@ def load_image(
     return image, label
 
 
+def augment_image(
+    image: tf.Tensor,
+    label: tf.Tensor,
+) -> tuple[tf.Tensor, tf.Tensor]:
+
+    image = tf.image.random_flip_left_right(image)
+    image = tf.image.random_brightness(image, max_delta=20.0)
+    image = tf.image.random_contrast(image, lower=0.80, upper=1.20)
+    image = tf.image.random_saturation(image, lower=0.80, upper=1.20)
+    image = tf.clip_by_value(image, 0.0, 255.0)
+
+    return image, label
+
+
 # ============================================================
 # Create tf.data dataset
 # ============================================================
 
 def make_dataset(
     image_dir: pathlib.Path,
-    paths: list[str],
+    paths: Sequence[pathlib.Path | str],
     labels: list[int],
     training: bool,
 ) -> tf.data.Dataset:
@@ -172,6 +222,12 @@ def make_dataset(
         num_parallel_calls=AUTOTUNE,
     )
 
+    if training:
+        dataset = dataset.map(
+            augment_image,
+            num_parallel_calls=AUTOTUNE,
+        )
+
     dataset = dataset.batch(
         BATCH_SIZE
     )
@@ -184,16 +240,14 @@ def make_dataset(
 
 
 # ============================================================
-# Build CNN
+# Build transfer-learning classifier
 #
-# NO MobileNet
-# NO ImageNet
-# NO external pretrained model
-#
-# Training uses Oxford-IIIT Pet only.
+# Training uses Oxford-IIIT Pet plus an optional explicit Unknown class.
 # ============================================================
 
-def build_model() -> tf.keras.Model:
+def build_model(
+    class_count: int,
+) -> tuple[tf.keras.Model, tf.keras.Model]:
 
     inputs = tf.keras.Input(
         shape=(
@@ -228,11 +282,7 @@ def build_model() -> tf.keras.Model:
         pooling=None,
     )
 
-    backbone.trainable = True
-
-    # Freeze the early layers
-    for layer in backbone.layers[:-40]:
-        layer.trainable = False
+    backbone.trainable = False
 
     x = backbone(x)
 
@@ -246,7 +296,7 @@ def build_model() -> tf.keras.Model:
     )(x)
 
     outputs = tf.keras.layers.Dense(
-        len(BREEDS),
+        class_count,
         activation=None,
         name="logits",
     )(x)
@@ -257,7 +307,24 @@ def build_model() -> tf.keras.Model:
         name="oxford_iiit_pet_breed_model",
     )
 
-    return model
+    return model, backbone
+
+
+def set_fine_tuning(
+    backbone: tf.keras.Model,
+    trainable_layers: int,
+) -> None:
+
+    backbone.trainable = True
+
+    for layer in backbone.layers[:-trainable_layers]:
+        layer.trainable = False
+
+    for layer in backbone.layers[-trainable_layers:]:
+        layer.trainable = not isinstance(
+            layer,
+            tf.keras.layers.BatchNormalization,
+        )
 
 
 # ============================================================
@@ -287,10 +354,16 @@ def main() -> None:
     )
 
     parser.add_argument(
-        "--epochs",
-        type=int,
-        default=100,
+        "--unknown-images",
+        type=pathlib.Path,
+        help=(
+            "Directory of non-Oxford animal and non-animal images. "
+            "These become an explicit Unknown class."
+        ),
     )
+
+    parser.add_argument("--epochs", type=int, default=40)
+    parser.add_argument("--warmup-epochs", type=int, default=5)
 
     args = parser.parse_args()
 
@@ -316,55 +389,42 @@ def main() -> None:
         args.annotations / "test.txt"
     )
 
-    # --------------------------------------------------------
-    # Shuffle training data
-    # --------------------------------------------------------
+    train_paths, train_labels, validation_paths, validation_labels = split_items(
+        train_paths,
+        train_labels,
+    )
 
-    train_items = list(
-        zip(
-            train_paths,
-            train_labels,
+    unknown_train_paths: list[pathlib.Path] = []
+    unknown_validation_paths: list[pathlib.Path] = []
+    unknown_test_paths: list[pathlib.Path] = []
+
+    if args.unknown_images:
+        unknown_paths = read_unknown_images(args.unknown_images)
+        if len(unknown_paths) < 5:
+            raise ValueError("--unknown-images must contain at least 5 images")
+
+        random.Random(SEED).shuffle(unknown_paths)
+        unknown_split = min(
+            len(unknown_paths) - 2,
+            max(1, int(len(unknown_paths) * 0.80)),
         )
-    )
+        validation_split = min(
+            len(unknown_paths) - 1,
+            max(unknown_split + 1, int(len(unknown_paths) * 0.90)),
+        )
+        unknown_train_paths = unknown_paths[:unknown_split]
+        unknown_validation_paths = unknown_paths[unknown_split:validation_split]
+        unknown_test_paths = unknown_paths[validation_split:]
 
-    random.Random(SEED).shuffle(
-        train_items
-    )
+        unknown_class = len(BREEDS)
+        train_paths += unknown_train_paths
+        train_labels += [unknown_class] * len(unknown_train_paths)
+        validation_paths += unknown_validation_paths
+        validation_labels += [unknown_class] * len(unknown_validation_paths)
 
-    train_paths = [
-        item[0]
-        for item in train_items
-    ]
-
-    train_labels = [
-        item[1]
-        for item in train_items
-    ]
-
-    # --------------------------------------------------------
-    # 90% training
-    # 10% validation
-    # --------------------------------------------------------
-
-    split_index = int(
-        len(train_paths) * 0.90
-    )
-
-    validation_paths = train_paths[
-        split_index:
-    ]
-
-    validation_labels = train_labels[
-        split_index:
-    ]
-
-    train_paths = train_paths[
-        :split_index
-    ]
-
-    train_labels = train_labels[
-        :split_index
-    ]
+    class_names = [*BREEDS]
+    if args.unknown_images:
+        class_names.append(UNKNOWN_LABEL)
 
     print()
     print("==============================")
@@ -388,7 +448,7 @@ def main() -> None:
 
     print(
         "Classes:",
-        len(BREEDS),
+        len(class_names),
     )
 
     # --------------------------------------------------------
@@ -399,7 +459,7 @@ def main() -> None:
     print("CLASS MAPPING")
     print("==============================")
 
-    for index, breed in enumerate(BREEDS):
+    for index, breed in enumerate(class_names):
 
         print(
             f"{index:2d} -> {breed}"
@@ -430,64 +490,78 @@ def main() -> None:
         training=False,
     )
 
+    if unknown_test_paths:
+        test = make_dataset(
+            args.images,
+            test_paths + unknown_test_paths,
+            test_labels + [len(BREEDS)] * len(unknown_test_paths),
+            training=False,
+        )
+
     # --------------------------------------------------------
     # Build model
     # --------------------------------------------------------
 
-    model = build_model()
+    model, backbone = build_model(len(class_names))
 
     model.summary()
 
-    # --------------------------------------------------------
-    # Compile
-    # --------------------------------------------------------
+    loss = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
 
-    model.compile(
-        optimizer=tf.keras.optimizers.Adam(
-            learning_rate=1e-5
-        ),
-        loss=tf.keras.losses.SparseCategoricalCrossentropy(
-            from_logits=True
-        ),
-        metrics=["accuracy"],
-    )
+    def compile_model(learning_rate: float) -> None:
+        model.compile(
+            optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate),
+            loss=loss,
+            metrics=["accuracy"],
+        )
 
-    # --------------------------------------------------------
-    # Callbacks
-    # --------------------------------------------------------
+    def callbacks() -> list[tf.keras.callbacks.Callback]:
+        return [
+            tf.keras.callbacks.EarlyStopping(
+                monitor="val_accuracy",
+                patience=6,
+                mode="max",
+                restore_best_weights=True,
+            ),
+            tf.keras.callbacks.ReduceLROnPlateau(
+                monitor="val_loss",
+                factor=0.5,
+                patience=2,
+                min_lr=1e-7,
+            ),
+        ]
 
-    early_stopping = tf.keras.callbacks.EarlyStopping(
-        monitor="val_accuracy",
-        patience=8,
-        mode="max",
-        restore_best_weights=True,
-    )
-
-    reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(
-        monitor="val_loss",
-        factor=0.5,
-        patience=3,
-        min_lr=1e-5,
-    )
-
-    # --------------------------------------------------------
-    # Train
-    # --------------------------------------------------------
+    warmup_epochs = min(args.warmup_epochs, args.epochs)
+    fine_tune_epochs = max(0, args.epochs - warmup_epochs)
 
     print()
     print("==============================")
-    print("TRAINING")
+    print("HEAD WARMUP")
     print("==============================")
 
+    compile_model(1e-3)
     model.fit(
         train,
         validation_data=validation,
-        epochs=args.epochs,
-        callbacks=[
-            early_stopping,
-            reduce_lr,
-        ],
+        epochs=warmup_epochs,
+        callbacks=callbacks(),
     )
+
+    if fine_tune_epochs > 0:
+        print()
+        print("==============================")
+        print("FINE-TUNING LAST 40 LAYERS")
+        print("==============================")
+
+        set_fine_tuning(backbone, trainable_layers=40)
+        compile_model(1e-5)
+        model.fit(
+            train,
+            validation_data=validation,
+            initial_epoch=warmup_epochs,
+            epochs=args.epochs,
+            callbacks=callbacks(),
+        )
 
     # --------------------------------------------------------
     # Test
@@ -508,6 +582,20 @@ def main() -> None:
         f"Test accuracy: {test_accuracy * 100:.2f}%"
     )
 
+    if args.unknown_images:
+        unknown_loss, unknown_accuracy = model.evaluate(
+            make_dataset(
+                args.images,
+                unknown_test_paths,
+                [len(BREEDS)] * len(unknown_test_paths),
+                training=False,
+            ),
+            verbose=0,
+        )
+        print(
+            f"Unknown rejection accuracy: {unknown_accuracy * 100:.2f}%"
+        )
+
     # --------------------------------------------------------
     # Make output directory
     # --------------------------------------------------------
@@ -527,7 +615,7 @@ def main() -> None:
     )
 
     labels_path.write_text(
-        "\n".join(BREEDS) + "\n",
+        "\n".join(class_names) + "\n",
         encoding="utf-8",
     )
 
