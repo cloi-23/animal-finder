@@ -17,7 +17,8 @@ ion-content {
 .scanner-home {
   display: flex;
   width: 100%;
-  min-height: 100dvh;
+  min-height: 100%;
+  padding-bottom: 126px;
   flex-direction: column;
   background: var(--scanner-bg);
   color: var(--scanner-text);
@@ -257,7 +258,7 @@ ion-content {
   justify-content: center;
   width: 72px;
   height: 72px;
-  margin: 22px auto 32px;
+  margin: 0 auto;
   border: 6px solid #fff;
   border-radius: 50%;
   background: var(--scanner-teal);
@@ -265,6 +266,20 @@ ion-content {
   box-shadow: 0 8px 20px rgb(18 21 28 / 20%);
   cursor: pointer;
   font-size: 2rem;
+}
+
+.capture-actions {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 10;
+  display: flex;
+  justify-content: center;
+  padding: 14px 20px calc(14px + env(safe-area-inset-bottom));
+  background: rgb(241 241 241 / 92%);
+  border-top: 1px solid var(--scanner-line);
+  backdrop-filter: blur(12px);
 }
 
 .capture-button:disabled {
