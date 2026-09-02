@@ -224,16 +224,12 @@ public class AnimalAiPlugin extends Plugin {
                 imageHeight
             );
 
-            /*
-             * MobileNetV3 input:
-             *
-             * RGB values are normalized from 0..255
-             * to approximately -1..1.
-             */
+            // The TFLite graph contains MobileNetV2 preprocessing, so pass
+            // RGB pixels in their original 0..255 range.
             for (int pixel : pixels) {
-                float red = ((pixel >> 16) & 0xFF) / 127.5f - 1.0f;
-                float green = ((pixel >> 8) & 0xFF) / 127.5f - 1.0f;
-                float blue = (pixel & 0xFF) / 127.5f - 1.0f;
+                float red = (pixel >> 16) & 0xFF;
+                float green = (pixel >> 8) & 0xFF;
+                float blue = pixel & 0xFF;
 
                 putInputValue(inputBuffer, inputTensor, red);
                 putInputValue(inputBuffer, inputTensor, green);

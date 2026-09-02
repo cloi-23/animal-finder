@@ -1,14 +1,6 @@
 import { useEffect, useState } from "react";
 import { AnimalAI } from "../ai/animalAi";
-import {
-  IonButton,
-  IonContent,
-  IonHeader,
-  IonPage,
-  IonText,
-  IonTitle,
-  IonToolbar,
-} from "@ionic/react";
+import { IonButton, IonContent, IonPage, IonText } from "@ionic/react";
 import { Animal, getAnimalByTaxonId } from "../database/animalDatabase";
 import { useNavigate } from "react-router";
 import { collectionService } from "../database/collectionService";
@@ -86,8 +78,6 @@ const Home: React.FC = () => {
   const navigate = useNavigate();
   const [category, setCategory] = useState<"Dog" | "Cat">("Dog");
   const [error, setError] = useState("");
-  const [prediction, setPrediction] = useState<string | null>(null);
-  const [confidence, setConfidence] = useState<number | null>(null);
   const [identifiedAnimal, setIdentifiedAnimal] = useState<Animal | null>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [identifying, setIdentifying] = useState(false);
@@ -115,8 +105,6 @@ const Home: React.FC = () => {
     if (!file) return;
 
     setError("");
-    setPrediction(null);
-    setConfidence(null);
     setPredictionSummary(null);
     setIdentifiedAnimal(null);
     setSelectedImage(URL.createObjectURL(file));
@@ -138,15 +126,6 @@ const Home: React.FC = () => {
 
       const summary = getPredictionSummary(result);
       setPredictionSummary(summary);
-      setPrediction(
-        summary.animal === "Unknown"
-          ? "Unknown animal"
-          : `${summary.animal} - ${summary.breed}`,
-      );
-      setConfidence(
-        typeof result.confidence === "number" ? result.confidence : null,
-      );
-
       // Track discovered breed in collection
       if (summary.isReliable && summary.breed !== "Unknown") {
         collectionService.recordBreedDiscovery(
@@ -334,7 +313,7 @@ const Home: React.FC = () => {
             )}
           </section>
 
-          <div className="scanner-actions">
+          <div className="capture-actions">
             <input
               id="animal-camera"
               type="file"
@@ -343,49 +322,14 @@ const Home: React.FC = () => {
               hidden
               onChange={handlePhotoSelected}
             />
-            <input
-              id="animal-upload"
-              type="file"
-              accept="image/*"
-              hidden
-              onChange={handlePhotoSelected}
-            />
-
-            <button className="tab tab-active" type="button">
-              <span>◉</span>
-              Scanner
-            </button>
             <button
-              className="tab"
+              className="capture-button"
               type="button"
               disabled={identifying}
               onClick={() => document.getElementById("animal-camera")?.click()}
+              aria-label="Capture photo"
             >
-              <span>⏱</span>
-            </button>
-            <button
-              className="tab"
-              type="button"
-              disabled={identifying}
-              onClick={() => document.getElementById("animal-upload")?.click()}
-            >
-              <span>◌</span>
-            </button>
-            <button
-              className="tab"
-              type="button"
-              disabled
-              aria-label="Unavailable"
-            >
-              <span>◍</span>
-            </button>
-            <button
-              className="tab"
-              type="button"
-              disabled
-              aria-label="Unavailable"
-            >
-              <span>◔</span>
+              <span aria-hidden="true">⌾</span>
             </button>
           </div>
 

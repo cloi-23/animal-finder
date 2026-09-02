@@ -11,18 +11,16 @@
 }
 
 ion-content {
-  --background: #000;
+  --background: var(--scanner-bg);
 }
 
 .scanner-home {
   display: flex;
-  max-width: 440px;
-  min-height: 100vh;
-  margin: 0 auto;
+  width: 100%;
+  min-height: 100dvh;
   flex-direction: column;
   background: var(--scanner-bg);
   color: var(--scanner-text);
-  box-shadow: inset 0 0 0 12px #2b2b2b;
 }
 
 .scanner-header {
@@ -253,39 +251,25 @@ ion-content {
   font-weight: 700;
 }
 
-.scanner-actions {
-  display: grid;
-  grid-template-columns: 2.3fr 1fr 1fr 1fr 1fr;
-  gap: 10px;
-  align-items: center;
-  margin: 18px 20px 26px;
-  padding: 8px 10px 14px;
-  border-radius: 18px 18px 0 0;
-  background: rgba(255, 255, 255, 0.4);
-}
-
-.tab {
-  display: inline-flex;
+.capture-button {
+  display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  min-height: 52px;
-  padding: 0 12px;
-  border: 0;
-  border-radius: 14px;
-  background: transparent;
-  color: rgba(39, 43, 52, 0.74);
-  font-size: 1.05rem;
-  font-weight: 700;
+  width: 72px;
+  height: 72px;
+  margin: 22px auto 32px;
+  border: 6px solid #fff;
+  border-radius: 50%;
+  background: var(--scanner-teal);
+  color: #fff;
+  box-shadow: 0 8px 20px rgb(18 21 28 / 20%);
+  cursor: pointer;
+  font-size: 2rem;
 }
 
-.tab-active {
-  background: rgba(37, 170, 183, 0.18);
-  color: var(--scanner-teal-dark);
-}
-
-.tab span {
-  font-size: 1.5rem;
+.capture-button:disabled {
+  cursor: wait;
+  opacity: 0.55;
 }
 
 .error-message {
@@ -299,10 +283,6 @@ ion-content {
   }
 
   .scanner-panel {
-    margin-inline: 14px;
-  }
-
-  .scanner-actions {
     margin-inline: 14px;
   }
 }
