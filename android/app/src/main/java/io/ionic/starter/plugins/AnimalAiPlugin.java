@@ -265,6 +265,24 @@ public class AnimalAiPlugin extends Plugin {
              */
             float[] scores = softmax(logits);
 
+            String requestedCategory = call.getString("category");
+            if ("Dog".equals(requestedCategory) || "Cat".equals(requestedCategory)) {
+                float categoryScoreTotal = 0;
+                for (int i = 0; i < scores.length; i++) {
+                    if (requestedCategory.equals(detectBreedCategory(getLabel(i)))) {
+                        categoryScoreTotal += scores[i];
+                    } else {
+                        scores[i] = 0;
+                    }
+                }
+
+                if (categoryScoreTotal > 0) {
+                    for (int i = 0; i < scores.length; i++) {
+                        scores[i] /= categoryScoreTotal;
+                    }
+                }
+            }
+
             int bestIndex = 0;
             float bestScore = scores[0];
 

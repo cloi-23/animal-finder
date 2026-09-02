@@ -37,7 +37,7 @@ export interface AnimalClassifyResult {
 export interface AnimalAiPlugin {
   modelInfo(): Promise<AnimalModelInfo>;
 
-  classify(options: { image: string }): Promise<{
+  classify(options: { image: string; category?: "Dog" | "Cat" }): Promise<{
     category: string;
     name: string;
     confidence: number;

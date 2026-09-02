@@ -99,6 +99,14 @@ const Home: React.FC = () => {
     );
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (selectedImage) {
+        URL.revokeObjectURL(selectedImage);
+      }
+    };
+  }, [selectedImage]);
+
   const handlePhotoSelected = async (
     event: React.ChangeEvent<HTMLInputElement>,
   ) => {
@@ -124,7 +132,7 @@ const Home: React.FC = () => {
           reject(reader.error ?? new Error("Unable to read image"));
         reader.readAsDataURL(file);
       });
-      const result = await AnimalAI.classify({ image });
+      const result = await AnimalAI.classify({ image, category });
       console.log("AnimalAI classify result:", JSON.stringify(result));
 
       const summary = getPredictionSummary(result);
@@ -165,18 +173,10 @@ const Home: React.FC = () => {
   };
 
   const topPredictions = predictionSummary?.topPredictions ?? [];
-  const gi = topPredictions[0] ?? {
-    label: "Golden Retriever",
-    confidencePercent: 56.7,
-  };
-  const secondBreed = topPredictions[1] ?? {
-    label: "Poodle",
-    confidencePercent: 8.6,
-  };
-  const thirdBreed = topPredictions[2] ?? {
-    label: "Other breeds less than 5%",
-    confidencePercent: 34.7,
-  };
+  const topBreed = topPredictions[0];
+  const secondBreed = topPredictions[1];
+  const topConfidence = topBreed?.confidencePercent ?? 0;
+  const secondConfidence = secondBreed?.confidencePercent ?? 0;
 
   return (
     <IonPage>
@@ -199,12 +199,14 @@ const Home: React.FC = () => {
           <div className="category-selector">
             <button
               className={`category-btn ${category === "Dog" ? "active" : ""}`}
+              disabled={identifying}
               onClick={() => setCategory("Dog")}
             >
               🐕 Dogs
             </button>
             <button
               className={`category-btn ${category === "Cat" ? "active" : ""}`}
+              disabled={identifying}
               onClick={() => setCategory("Cat")}
             >
               🐈 Cats
@@ -213,22 +215,23 @@ const Home: React.FC = () => {
 
           <section className="scanner-panel">
             <h2>Your Result</h2>
+            {identifying && (
+              <p className="identifying-status">Identifying animal...</p>
+            )}
 
             <div className="result-ring-wrap">
               <div
                 className="result-ring"
                 style={{
                   background: `conic-gradient(
-                    #1ea6b4 0 ${gi.confidencePercent}%,
-                    #1f5b66 ${gi.confidencePercent}% ${Math.min(
+                    #1ea6b4 0 ${topConfidence}%,
+                    #1f5b66 ${topConfidence}% ${Math.min(
                       100,
-                      gi.confidencePercent +
-                        (secondBreed.confidencePercent || 8),
+                      topConfidence + secondConfidence,
                     )}%,
                     #d8d8d8 ${Math.min(
                       100,
-                      gi.confidencePercent +
-                        (secondBreed.confidencePercent || 8),
+                      topConfidence + secondConfidence,
                     )}% 100%
                   )`,
                 }}
@@ -242,10 +245,14 @@ const Home: React.FC = () => {
                 </div>
               ) : (
                 <div className="ring-avatar ring-avatar-main ring-avatar-placeholder">
-                  <img
-                    src={getBreedAvatar(topBreed.label)}
-                    alt={topBreed.label}
-                  />
+                  {topBreed ? (
+                    <img
+                      src={getBreedAvatar(topBreed.label)}
+                      alt={topBreed.label}
+                    />
+                  ) : (
+                    <span aria-hidden="true">?</span>
+                  )}
                 </div>
               )}
 
@@ -260,48 +267,35 @@ const Home: React.FC = () => {
             </div>
 
             <div className="result-list">
-              <div className="result-card result-card-primary">
-                <div className="result-card-avatar">
-                  {selectedImage ? (
-                    <img src={selectedImage} alt="Top breed" />
-                  ) : (
-                    <img
-                      src={getBreedAvatar(topBreed.label)}
-                      alt={topBreed.label}
-                    />
-                  )}
-                </div>
-                <div className="result-card-copy">
-                  <strong>{topBreed.label}</strong>
-                  <span>{topBreed.confidencePercent}% Match</span>
-                </div>
-              </div>
-
-              <div className="result-card">
-                <div className="result-card-avatar">
-                  <img
-                    src={getBreedAvatar(secondBreed.label)}
-                    alt={secondBreed.label}
-                  />
-                </div>
-                <div className="result-card-copy">
-                  <strong>{secondBreed.label}</strong>
-                  <span>{secondBreed.confidencePercent}% Match</span>
-                </div>
-              </div>
-
-              <div className="result-card">
-                <div className="result-card-avatar">
-                  <img
-                    src={getBreedAvatar(thirdBreed.label)}
-                    alt={thirdBreed.label}
-                  />
-                </div>
-                <div className="result-card-copy">
-                  <strong>{thirdBreed.label}</strong>
-                  <span>{thirdBreed.confidencePercent}% Match</span>
-                </div>
-              </div>
+              {topPredictions.length > 0 ? (
+                topPredictions.slice(0, 3).map((breed, index) => (
+                  <div
+                    className={`result-card ${index === 0 ? "result-card-primary" : ""}`}
+                    key={breed.label}
+                  >
+                    <div className="result-card-avatar">
+                      {index === 0 && selectedImage ? (
+                        <img src={selectedImage} alt="Top breed" />
+                      ) : (
+                        <img
+                          src={getBreedAvatar(breed.label)}
+                          alt={breed.label}
+                        />
+                      )}
+                    </div>
+                    <div className="result-card-copy">
+                      <strong>{breed.label}</strong>
+                      <span>{breed.confidencePercent}% Match</span>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="empty-result">
+                  {identifying
+                    ? "Identifying animal..."
+                    : "Take a photo to identify an animal."}
+                </p>
+              )}
             </div>
 
             {predictionSummary?.warning && (
@@ -345,6 +339,7 @@ const Home: React.FC = () => {
             <button
               className="tab"
               type="button"
+              disabled={identifying}
               onClick={() => document.getElementById("animal-camera")?.click()}
             >
               <span>⏱</span>
@@ -352,14 +347,25 @@ const Home: React.FC = () => {
             <button
               className="tab"
               type="button"
+              disabled={identifying}
               onClick={() => document.getElementById("animal-upload")?.click()}
             >
               <span>◌</span>
             </button>
-            <button className="tab" type="button">
+            <button
+              className="tab"
+              type="button"
+              disabled
+              aria-label="Unavailable"
+            >
               <span>◍</span>
             </button>
-            <button className="tab" type="button">
+            <button
+              className="tab"
+              type="button"
+              disabled
+              aria-label="Unavailable"
+            >
               <span>◔</span>
             </button>
           </div>

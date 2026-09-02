@@ -74,6 +74,12 @@ ion-content {
   color: var(--scanner-teal-dark);
 }
 
+.category-btn:disabled,
+.tab:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
 .scanner-panel {
   margin: 0 20px;
   padding: 22px 18px 16px;
@@ -87,6 +93,13 @@ ion-content {
   font-size: 2.1rem;
   font-weight: 800;
   letter-spacing: -0.03em;
+}
+
+.identifying-status,
+.empty-result {
+  margin: 0 0 14px;
+  color: var(--scanner-muted);
+  text-align: center;
 }
 
 .result-ring-wrap {
