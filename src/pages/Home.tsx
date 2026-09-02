@@ -165,7 +165,7 @@ const Home: React.FC = () => {
   };
 
   const topPredictions = predictionSummary?.topPredictions ?? [];
-  const topBreed = topPredictions[0] ?? {
+  const gi = topPredictions[0] ?? {
     label: "Golden Retriever",
     confidencePercent: 56.7,
   };
@@ -219,15 +219,15 @@ const Home: React.FC = () => {
                 className="result-ring"
                 style={{
                   background: `conic-gradient(
-                    #1ea6b4 0 ${topBreed.confidencePercent}%,
-                    #1f5b66 ${topBreed.confidencePercent}% ${Math.min(
+                    #1ea6b4 0 ${gi.confidencePercent}%,
+                    #1f5b66 ${gi.confidencePercent}% ${Math.min(
                       100,
-                      topBreed.confidencePercent +
+                      gi.confidencePercent +
                         (secondBreed.confidencePercent || 8),
                     )}%,
                     #d8d8d8 ${Math.min(
                       100,
-                      topBreed.confidencePercent +
+                      gi.confidencePercent +
                         (secondBreed.confidencePercent || 8),
                     )}% 100%
                   )`,

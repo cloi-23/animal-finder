@@ -281,6 +281,14 @@ public class AnimalAiPlugin extends Plugin {
                 animalName = "Unknown animal";
             }
 
+            String category = detectBreedCategory(animalName);
+            JSObject result = new JSObject();
+            result.put("classId", bestIndex);
+            result.put("taxonId", taxonIds.get(bestIndex));
+            result.put("name", animalName);
+            result.put("category", category);
+            result.put("confidence", bestScore);
+
             JSArray predictions = new JSArray();
             Integer[] indices = new Integer[scores.length];
 
