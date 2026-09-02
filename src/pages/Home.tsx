@@ -180,14 +180,6 @@ const Home: React.FC = () => {
     predictionSummary?.animal ?? "Unknown",
     topPredictions,
   );
-  const highConfidenceCategory =
-    predictionSummary &&
-    predictionSummary.confidencePercent >= 80 &&
-    (predictionSummary.animal === "Cat" || predictionSummary.animal === "Dog")
-      ? predictionSummary.animal
-      : null;
-  const categoryMismatch =
-    highConfidenceCategory && highConfidenceCategory !== category;
 
   return (
     <IonPage>
@@ -334,22 +326,6 @@ const Home: React.FC = () => {
               <IonText color="warning">
                 <p className="warning-copy">{predictionSummary.warning}</p>
               </IonText>
-            )}
-
-            {highConfidenceCategory && (
-              <div
-                className={`category-result ${categoryMismatch ? "category-result-mismatch" : ""}`}
-                role="status"
-              >
-                <strong>
-                  {categoryMismatch
-                    ? `This is a ${highConfidenceCategory.toLowerCase()}, not a ${category.toLowerCase()}.`
-                    : `This is a ${highConfidenceCategory.toLowerCase()}.`}
-                </strong>
-                <span>
-                  {predictionSummary?.confidencePercent.toFixed(1)}% confidence
-                </span>
-              </div>
             )}
 
             {breedExplanation.length > 0 && (
