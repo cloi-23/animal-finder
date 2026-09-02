@@ -81,6 +81,7 @@ const Home: React.FC = () => {
   const [identifying, setIdentifying] = useState(false);
   const [predictionSummary, setPredictionSummary] =
     useState<PredictionSummary | null>(null);
+  const [displayedConfidence, setDisplayedConfidence] = useState(0);
 
   useEffect(() => {
     AnimalAI.modelInfo().catch((modelError) =>
@@ -95,6 +96,32 @@ const Home: React.FC = () => {
       }
     };
   }, [selectedImage]);
+
+  useEffect(() => {
+    if (identifying || !predictionSummary) {
+      setDisplayedConfidence(0);
+      return;
+    }
+
+    const target = predictionSummary.confidencePercent;
+    const startedAt = performance.now();
+    const duration = 900;
+    let animationFrame = 0;
+
+    const animateConfidence = (timestamp: number) => {
+      const progress = Math.min(1, (timestamp - startedAt) / duration);
+      const easedProgress = 1 - Math.pow(1 - progress, 3);
+      setDisplayedConfidence(target * easedProgress);
+
+      if (progress < 1) {
+        animationFrame = requestAnimationFrame(animateConfidence);
+      }
+    };
+
+    animationFrame = requestAnimationFrame(animateConfidence);
+
+    return () => cancelAnimationFrame(animationFrame);
+  }, [identifying, predictionSummary]);
 
   const handlePhotoSelected = async (
     event: React.ChangeEvent<HTMLInputElement>,
@@ -153,6 +180,14 @@ const Home: React.FC = () => {
     predictionSummary?.animal ?? "Unknown",
     topPredictions,
   );
+  const highConfidenceCategory =
+    predictionSummary &&
+    predictionSummary.confidencePercent >= 80 &&
+    (predictionSummary.animal === "Cat" || predictionSummary.animal === "Dog")
+      ? predictionSummary.animal
+      : null;
+  const categoryMismatch =
+    highConfidenceCategory && highConfidenceCategory !== category;
 
   return (
     <IonPage>
@@ -219,7 +254,21 @@ const Home: React.FC = () => {
                   )`,
                 }}
               >
-                <div className="ring-center" />
+                <div className="ring-center">
+                  {identifying ? (
+                    <span className="ring-scanning" aria-label="Scanning">
+                      ...
+                    </span>
+                  ) : predictionSummary ? (
+                    <strong
+                      aria-label={`${displayedConfidence.toFixed(1)} percent confidence`}
+                    >
+                      {displayedConfidence.toFixed(1)}%
+                    </strong>
+                  ) : (
+                    <span className="ring-ready">Ready</span>
+                  )}
+                </div>
               </div>
 
               {selectedImage ? (
@@ -285,6 +334,22 @@ const Home: React.FC = () => {
               <IonText color="warning">
                 <p className="warning-copy">{predictionSummary.warning}</p>
               </IonText>
+            )}
+
+            {highConfidenceCategory && (
+              <div
+                className={`category-result ${categoryMismatch ? "category-result-mismatch" : ""}`}
+                role="status"
+              >
+                <strong>
+                  {categoryMismatch
+                    ? `This is a ${highConfidenceCategory.toLowerCase()}, not a ${category.toLowerCase()}.`
+                    : `This is a ${highConfidenceCategory.toLowerCase()}.`}
+                </strong>
+                <span>
+                  {predictionSummary?.confidencePercent.toFixed(1)}% confidence
+                </span>
+              </div>
             )}
 
             {breedExplanation.length > 0 && (

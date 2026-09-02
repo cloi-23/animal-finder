@@ -154,10 +154,31 @@ ion-content {
 }
 
 .ring-center {
+  display: grid;
   position: absolute;
   inset: 22px;
+  place-items: center;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.9);
+}
+
+.ring-center strong {
+  color: var(--scanner-teal-dark);
+  font-size: 1.8rem;
+  font-weight: 800;
+}
+
+.ring-ready,
+.ring-scanning {
+  color: var(--scanner-muted);
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.ring-scanning {
+  width: 1.25em;
+  overflow: hidden;
+  animation: dots 1.2s steps(4, end) infinite;
 }
 
 .ring-avatar {
@@ -262,6 +283,36 @@ ion-content {
 .warning-copy {
   margin: 14px 0 8px;
   font-weight: 700;
+}
+
+.category-result {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 12px 14px;
+  border-left: 4px solid var(--scanner-teal);
+  background: rgba(34, 170, 183, 0.1);
+  color: var(--scanner-teal-dark);
+  animation: result-reveal 360ms ease-out both;
+}
+
+.category-result strong {
+  font-size: 1rem;
+}
+
+.category-result span {
+  flex: 0 0 auto;
+  color: var(--scanner-muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.category-result-mismatch {
+  border-left-color: #c87918;
+  background: rgb(200 121 24 / 12%);
+  color: #8a510b;
 }
 
 .breed-explanation {
