@@ -4,6 +4,7 @@ export interface BreedRecord {
   discovered: boolean;
   firstScanDate?: string;
   scanCount: number;
+  avatar?: string;
 }
 
 export interface CollectionData {
@@ -76,7 +77,11 @@ export const collectionService = {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(collection));
   },
 
-  recordBreedDiscovery(breed: string, category: "Dog" | "Cat"): void {
+  recordBreedDiscovery(
+    breed: string,
+    category: "Dog" | "Cat",
+    avatar?: string,
+  ): void {
     const collection = this.getCollection();
 
     if (!collection.breeds[breed]) {
@@ -94,6 +99,9 @@ export const collectionService = {
       record.firstScanDate = new Date().toISOString();
     }
     record.scanCount += 1;
+    if (avatar) {
+      record.avatar = avatar;
+    }
 
     this.saveCollection(collection);
   },

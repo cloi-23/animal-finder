@@ -30,6 +30,7 @@ ion-content {
   font-size: clamp(2rem, 5vw, 2.7rem);
   font-weight: 800;
   letter-spacing: 0.03em;
+  animation: content-reveal 420ms ease-out both;
 }
 
 .header-content {
@@ -52,6 +53,7 @@ ion-content {
   gap: 10px;
   margin: 0 20px 14px;
   padding: 0 4px;
+  animation: content-reveal 420ms 80ms ease-out both;
 }
 
 .category-btn {
@@ -85,6 +87,7 @@ ion-content {
   border-radius: 26px;
   background: rgba(255 255 255, 0.72);
   box-shadow: var(--scanner-shadow);
+  animation: content-reveal 500ms 140ms ease-out both;
 }
 
 .scanner-panel h2 {
@@ -280,6 +283,50 @@ ion-content {
   background: rgb(241 241 241 / 92%);
   border-top: 1px solid var(--scanner-line);
   backdrop-filter: blur(12px);
+  animation: capture-rise 420ms 240ms ease-out both;
+}
+
+@keyframes content-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes capture-rise {
+  from {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes detail-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scanner-header,
+  .category-selector,
+  .scanner-panel,
+  .capture-actions,
+  .breed-detail {
+    animation: none;
+  }
 }
 
 .capture-button:disabled {

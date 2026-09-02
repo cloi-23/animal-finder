@@ -1,12 +1,11 @@
 .collection-home {
   display: flex;
-  max-width: 440px;
-  min-height: 100vh;
-  margin: 0 auto;
+  width: 100%;
+  min-height: 100%;
+  padding-bottom: 24px;
   flex-direction: column;
   background: var(--scanner-bg);
   color: var(--scanner-text);
-  box-shadow: inset 0 0 0 12px #2b2b2b;
 }
 
 .collection-header {
@@ -32,9 +31,10 @@
 }
 
 .collection-panel {
-  margin: 0 20px;
+  width: 100%;
+  margin: 0;
   padding: 22px 18px 16px;
-  border-radius: 26px;
+  border-radius: 0;
   background: rgba(255 255 255, 0.72);
   box-shadow: var(--scanner-shadow);
   flex: 1;
@@ -151,6 +151,8 @@
   border: 2px solid var(--scanner-line);
   background: white;
   transition: all 0.2s ease;
+  cursor: pointer;
+  text-align: left;
 }
 
 .breed-card.discovered {
@@ -165,6 +167,50 @@
 
 .breed-card:active {
   transform: scale(0.98);
+}
+
+.breed-detail {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-top: 20px;
+  padding: 18px;
+  border-left: 5px solid var(--scanner-teal);
+  background: #fff;
+  box-shadow: var(--scanner-shadow);
+  animation: detail-in 260ms ease-out both;
+}
+
+.breed-detail-avatar {
+  width: 104px;
+  height: 104px;
+  flex: 0 0 auto;
+  overflow: hidden;
+  border: 4px solid #dff7f8;
+  border-radius: 50%;
+  background: #e0f2f4;
+}
+
+.breed-detail-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.breed-detail-category {
+  color: var(--scanner-teal-dark);
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.breed-detail h2 {
+  margin: 4px 0;
+}
+
+.breed-detail p {
+  margin: 0;
+  color: var(--scanner-muted);
 }
 
 .breed-avatar {
@@ -221,10 +267,6 @@
 }
 
 @media (max-width: 430px) {
-  .collection-panel {
-    margin-inline: 14px;
-  }
-
   .breeds-grid {
     grid-template-columns: 1fr;
   }

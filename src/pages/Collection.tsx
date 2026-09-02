@@ -13,6 +13,7 @@ const Collection: React.FC = () => {
   const [category, setCategory] = useState<"Dog" | "Cat">("Dog");
   const [discovered, setDiscovered] = useState<BreedRecord[]>([]);
   const [undiscovered, setUndiscovered] = useState<BreedRecord[]>([]);
+  const [selectedBreed, setSelectedBreed] = useState<BreedRecord | null>(null);
   const [stats, setStats] = useState({
     total: 0,
     discovered: 0,
@@ -86,10 +87,15 @@ const Collection: React.FC = () => {
                 <h2>✓ Discovered</h2>
                 <div className="breeds-grid">
                   {discovered.map((record) => (
-                    <div key={record.breed} className="breed-card discovered">
+                    <button
+                      key={record.breed}
+                      type="button"
+                      className="breed-card discovered"
+                      onClick={() => setSelectedBreed(record)}
+                    >
                       <div className="breed-avatar">
                         <img
-                          src={getBreedAvatar(record.breed)}
+                          src={record.avatar || getBreedAvatar(record.breed)}
                           alt={record.breed}
                         />
                       </div>
@@ -97,10 +103,34 @@ const Collection: React.FC = () => {
                         <strong>{record.breed}</strong>
                         <span className="scan-count">{record.scanCount}x</span>
                       </div>
-                    </div>
+                    </button>
                   ))}
                 </div>
               </div>
+            )}
+
+            {selectedBreed && (
+              <section className="breed-detail" aria-live="polite">
+                <div className="breed-detail-avatar">
+                  <img
+                    src={
+                      selectedBreed.avatar ||
+                      getBreedAvatar(selectedBreed.breed)
+                    }
+                    alt={selectedBreed.breed}
+                  />
+                </div>
+                <div>
+                  <span className="breed-detail-category">
+                    {selectedBreed.category.toUpperCase()} ENTRY
+                  </span>
+                  <h2>{selectedBreed.breed}</h2>
+                  <p>
+                    Scanned {selectedBreed.scanCount} time
+                    {selectedBreed.scanCount === 1 ? "" : "s"}
+                  </p>
+                </div>
+              </section>
             )}
 
             {undiscovered.length > 0 && (

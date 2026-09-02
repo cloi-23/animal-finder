@@ -131,6 +131,7 @@ const Home: React.FC = () => {
         collectionService.recordBreedDiscovery(
           summary.breed,
           summary.animal as "Dog" | "Cat",
+          image,
         );
       }
 
