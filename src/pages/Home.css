@@ -221,6 +221,27 @@ ion-content {
   font-weight: 700;
 }
 
+.breed-explanation {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--scanner-line);
+}
+
+.breed-explanation h3 {
+  margin: 0 0 8px;
+  font-size: 1rem;
+}
+
+.breed-explanation ul {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 20px;
+  color: var(--scanner-muted);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
 .database-button {
   --background: transparent;
   --color: var(--scanner-teal-dark);

@@ -13,6 +13,7 @@ import { Animal, getAnimalByTaxonId } from "../database/animalDatabase";
 import { useNavigate } from "react-router";
 import { collectionService } from "../database/collectionService";
 import { getBreedAvatar } from "./breedAvatars";
+import { getBreedExplanation } from "./breedExplanations";
 import "./Home.css";
 
 export type PredictionSummary = {
@@ -177,6 +178,10 @@ const Home: React.FC = () => {
   const secondBreed = topPredictions[1];
   const topConfidence = topBreed?.confidencePercent ?? 0;
   const secondConfidence = secondBreed?.confidencePercent ?? 0;
+  const breedExplanation = getBreedExplanation(
+    predictionSummary?.animal ?? "Unknown",
+    topPredictions,
+  );
 
   return (
     <IonPage>
@@ -302,6 +307,20 @@ const Home: React.FC = () => {
               <IonText color="warning">
                 <p className="warning-copy">{predictionSummary.warning}</p>
               </IonText>
+            )}
+
+            {breedExplanation.length > 0 && (
+              <section
+                className="breed-explanation"
+                aria-labelledby="breed-explanation-title"
+              >
+                <h3 id="breed-explanation-title">Why these breeds?</h3>
+                <ul>
+                  {breedExplanation.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              </section>
             )}
 
             {identifiedAnimal && (
