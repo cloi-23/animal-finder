@@ -153,6 +153,21 @@
   transition: all 0.2s ease;
   cursor: pointer;
   text-align: left;
+  appearance: none;
+  font: inherit;
+}
+.breed-card:focus-visible {
+  border-color: var(--scanner-teal-dark);
+  outline: 3px solid rgba(34, 170, 183, 0.22);
+  outline-offset: 2px;
+}
+
+.breed-card:hover {
+  transform: translateY(-2px);
+}
+
+.breed-card:focus-visible {
+  transform: translateY(-2px);
 }
 
 .breed-card.discovered {

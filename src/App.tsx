@@ -33,7 +33,6 @@ import "@ionic/react/css/palettes/dark.system.css";
 
 /* Theme variables */
 import "./theme/variables.css";
-import AnimalDetails from "./pages/AnimalDetails";
 
 setupIonicReact();
 
@@ -41,7 +40,6 @@ const App: React.FC = () => (
   <IonApp>
     <IonReactRouter>
       <IonRouterOutlet>
-        <Route path="/animal/:id" element={<AnimalDetails />} />
         <Route path="/collection" element={<Collection />} />
         <Route path="/home" element={<Home />} />
         <Route path="/" element={<Navigate to="/home" replace />} />

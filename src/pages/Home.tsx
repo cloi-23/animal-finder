@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { AnimalAI } from "../ai/animalAi";
 import { IonButton, IonContent, IonPage, IonText } from "@ionic/react";
-import { Animal, getAnimalByTaxonId } from "../database/animalDatabase";
 import { useNavigate } from "react-router";
 import { collectionService } from "../database/collectionService";
 import { getBreedAvatar } from "./breedAvatars";
@@ -78,7 +77,6 @@ const Home: React.FC = () => {
   const navigate = useNavigate();
   const [category, setCategory] = useState<"Dog" | "Cat">("Dog");
   const [error, setError] = useState("");
-  const [identifiedAnimal, setIdentifiedAnimal] = useState<Animal | null>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [identifying, setIdentifying] = useState(false);
   const [predictionSummary, setPredictionSummary] =
@@ -106,7 +104,6 @@ const Home: React.FC = () => {
 
     setError("");
     setPredictionSummary(null);
-    setIdentifiedAnimal(null);
     setSelectedImage(URL.createObjectURL(file));
     setIdentifying(true);
 
@@ -133,12 +130,6 @@ const Home: React.FC = () => {
           summary.animal as "Dog" | "Cat",
           image,
         );
-      }
-
-      if (summary.isReliable && result.taxonId !== null) {
-        setIdentifiedAnimal(await getAnimalByTaxonId(result.taxonId));
-      } else {
-        setIdentifiedAnimal(null);
       }
     } catch (classificationError) {
       console.error("Animal AI classification failed:", classificationError);
@@ -201,10 +192,17 @@ const Home: React.FC = () => {
           <section className="scanner-panel">
             <h2>Your Result</h2>
             {identifying && (
-              <p className="identifying-status">Identifying animal...</p>
+              <p className="identifying-status">
+                Identifying animal
+                <span className="loading-dots" aria-hidden="true">
+                  ...
+                </span>
+              </p>
             )}
 
-            <div className="result-ring-wrap">
+            <div
+              className={`result-ring-wrap ${identifying ? "is-scanning" : ""}`}
+            >
               <div
                 className="result-ring"
                 style={{
@@ -301,16 +299,6 @@ const Home: React.FC = () => {
                   ))}
                 </ul>
               </section>
-            )}
-
-            {identifiedAnimal && (
-              <IonButton
-                fill="outline"
-                className="database-button"
-                onClick={() => navigate(`/animal/${identifiedAnimal.id}`)}
-              >
-                Open database record
-              </IonButton>
             )}
           </section>
 

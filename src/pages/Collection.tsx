@@ -22,6 +22,7 @@ const Collection: React.FC = () => {
   });
 
   useEffect(() => {
+    setSelectedBreed(null);
     loadCollection();
   }, [category]);
 
@@ -81,34 +82,6 @@ const Collection: React.FC = () => {
                 </span>
               </div>
             </div>
-
-            {discovered.length > 0 && (
-              <div className="breeds-section">
-                <h2>✓ Discovered</h2>
-                <div className="breeds-grid">
-                  {discovered.map((record) => (
-                    <button
-                      key={record.breed}
-                      type="button"
-                      className="breed-card discovered"
-                      onClick={() => setSelectedBreed(record)}
-                    >
-                      <div className="breed-avatar">
-                        <img
-                          src={record.avatar || getBreedAvatar(record.breed)}
-                          alt={record.breed}
-                        />
-                      </div>
-                      <div className="breed-info">
-                        <strong>{record.breed}</strong>
-                        <span className="scan-count">{record.scanCount}x</span>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
             {selectedBreed && (
               <section className="breed-detail" aria-live="polite">
                 <div className="breed-detail-avatar">
@@ -131,6 +104,34 @@ const Collection: React.FC = () => {
                   </p>
                 </div>
               </section>
+            )}
+
+            {discovered.length > 0 && (
+              <div className="breeds-section">
+                <h2>✓ Discovered</h2>
+                <div className="breeds-grid">
+                  {discovered.map((record) => (
+                    <button
+                      key={record.breed}
+                      type="button"
+                      className="breed-card discovered"
+                      aria-label={`View ${record.breed} scan`}
+                      onClick={() => setSelectedBreed(record)}
+                    >
+                      <div className="breed-avatar">
+                        <img
+                          src={record.avatar || getBreedAvatar(record.breed)}
+                          alt={record.breed}
+                        />
+                      </div>
+                      <div className="breed-info">
+                        <strong>{record.breed}</strong>
+                        <span className="scan-count">{record.scanCount}x</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
             )}
 
             {undiscovered.length > 0 && (
