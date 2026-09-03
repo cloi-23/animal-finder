@@ -45,13 +45,13 @@ public class AnimalAIPlugin: CAPPlugin {
             let input = try interpreter.input(at: 0)
             let output = try interpreter.output(at: 0)
             call.resolve([
-                "inputCount": interpreter.inputs.count,
-                "outputCount": interpreter.outputs.count,
+                "inputCount": interpreter.inputTensorCount,
+                "outputCount": interpreter.outputTensorCount,
                 "inputs": [["index": 0, "name": input.name, "type": String(describing: input.dataType), "shape": input.shape.dimensions]],
                 "outputs": [["index": 0, "name": output.name, "type": String(describing: output.dataType), "shape": output.shape.dimensions]]
             ])
         } catch {
-            call.reject("Unable to inspect Animal AI model", error)
+            call.reject("Unable to inspect Animal AI model: \(error)")
         }
     }
 
@@ -102,7 +102,7 @@ public class AnimalAIPlugin: CAPPlugin {
                 call.resolve(["classId": bestIndex, "taxonId": NSNull(), "name": name, "category": breedCategory, "confidence": scores[bestIndex], "predictions": predictions])
             }
         } catch {
-            call.reject("Animal AI classification failed", error)
+            call.reject("Animal AI classification failed: \(error)")
         }
     }
 
@@ -142,7 +142,7 @@ public class AnimalAIPlugin: CAPPlugin {
         case .float32:
             var value = value
             data.append(Data(bytes: &value, count: 4))
-        case .uint8:
+        case .uInt8:
             data.append(UInt8(max(0, min(255, Int(value)))) )
         default:
             data.append(UInt8(max(0, min(255, Int(value)))) )
