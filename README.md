@@ -49,4 +49,4 @@ The iOS target requires macOS and Xcode. Install dependencies, download the late
 
 npm run ios:sync
 
-Open `ios/App/App.xcodeproj` in Xcode to configure the Apple development team and signing. The GitHub Actions workflow requires `APPLE_TEAM_ID`, `IOS_DISTRIBUTION_CERTIFICATE_BASE64`, `IOS_DISTRIBUTION_CERTIFICATE_PASSWORD`, `IOS_PROVISIONING_PROFILE_BASE64`, and `IOS_PROVISIONING_PROFILE_NAME` secrets.
+Open `ios/App/App.xcodeproj` in Xcode to configure the Apple development team and signing. The GitHub Actions workflow currently builds an unsigned `.xcarchive`, which does not require Apple Developer secrets. A signed `.ipa` for TestFlight or the App Store requires an Apple Developer account, certificate, and provisioning profile.
