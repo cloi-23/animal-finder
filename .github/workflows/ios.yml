@@ -44,6 +44,8 @@ jobs:
 
       - name: Import Apple signing certificate
         uses: apple-actions/import-codesign-certs@v7
+        env:
+          NODE_NO_WARNINGS: "1"
         with:
           keychain: login
           create-keychain: false
