@@ -13,26 +13,16 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
 
       - name: Install dependencies
         run: npm ci
-
-      - name: Download animal database
-        run: |
-          mkdir -p public/database
-          gh release download database-v1 \
-            --repo "${{ github.repository }}" \
-            --pattern "animals_mobile.sqlite" \
-            --dir public/database
-        env:
-          GH_TOKEN: ${{ github.token }}
 
       - name: Build web app
         run: npm run build
@@ -55,24 +45,17 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
-      - name: Include existing iNaturalist model
-        run: |
-          cp src/assets/models/INatVision_Small_2_fact256_8bit.tflite \
-            android/app/src/main/assets/camera/inat_vision.tflite
-          cp src/assets/models/taxonomy.csv \
-            android/app/src/main/assets/camera/taxonomy.csv
-
       - name: Sync Capacitor
         run: npx cap sync android
 
       - name: Set up Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "21"
 
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
 
       - name: Decode Android keystore
         env:
@@ -104,7 +87,7 @@ jobs:
              android/app/build/outputs/apk/release/animal-finder.apk
 
       - name: Upload APK artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: animal-finder-release-apk
           path: android/app/build/outputs/apk/release/animal-finder.apk
