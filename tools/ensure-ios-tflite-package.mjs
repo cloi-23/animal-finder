@@ -6,11 +6,11 @@ let packageText = await readFile(packagePath, "utf8");
 if (!packageText.includes("tflite-swift")) {
   packageText = packageText.replace(
     '        .package(name: "CapacitorStatusBar", path: "../../../node_modules/@capacitor/status-bar")',
-    '        .package(name: "CapacitorStatusBar", path: "../../../node_modules/@capacitor/status-bar"),\n        .package(name: "tflite-swift", url: "https://github.com/kewlbear/TensorFlowLiteSwift", exact: "2.17.0")',
+    '        .package(name: "CapacitorStatusBar", path: "../../../node_modules/@capacitor/status-bar"),\n        .package(url: "https://github.com/kewlbear/TensorFlowLiteSwift", exact: "2.17.0")',
   );
   packageText = packageText.replace(
     '                .product(name: "CapacitorStatusBar", package: "CapacitorStatusBar")',
-    '                .product(name: "CapacitorStatusBar", package: "CapacitorStatusBar"),\n                .product(name: "TensorFlowLiteSwift", package: "tflite-swift")',
+    '                .product(name: "CapacitorStatusBar", package: "CapacitorStatusBar"),\n                .product(name: "TensorFlowLiteSwift", package: "TensorFlowLiteSwift")',
   );
   await writeFile(packagePath, packageText);
 }

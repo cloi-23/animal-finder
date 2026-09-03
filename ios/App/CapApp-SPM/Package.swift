@@ -17,7 +17,7 @@ let package = Package(
         .package(name: "CapacitorHaptics", path: "../../../node_modules/@capacitor/haptics"),
         .package(name: "CapacitorKeyboard", path: "../../../node_modules/@capacitor/keyboard"),
         .package(name: "CapacitorStatusBar", path: "../../../node_modules/@capacitor/status-bar"),
-        .package(name: "tflite-swift", url: "https://github.com/kewlbear/TensorFlowLiteSwift", exact: "2.17.0")
+        .package(url: "https://github.com/kewlbear/TensorFlowLiteSwift", exact: "2.17.0")
     ],
     targets: [
         .target(
@@ -30,7 +30,7 @@ let package = Package(
                 .product(name: "CapacitorHaptics", package: "CapacitorHaptics"),
                 .product(name: "CapacitorKeyboard", package: "CapacitorKeyboard"),
                 .product(name: "CapacitorStatusBar", package: "CapacitorStatusBar"),
-                .product(name: "TensorFlowLiteSwift", package: "tflite-swift")
+                .product(name: "TensorFlowLiteSwift", package: "TensorFlowLiteSwift")
             ]
         )
     ]
