@@ -1,6 +1,6 @@
 # Animal Finder
 
-An Ionic + Capacitor Android app that identifies dog and cat breeds from a photo using an on-device TensorFlow Lite model.
+An Ionic + Capacitor app that identifies dog and cat breeds from a photo using an on-device TensorFlow Lite model.
 
 ## What it does
 
@@ -40,5 +40,13 @@ This app is intentionally limited to cat and dog breeds. If a photo is not recog
 ## Notes
 
 - The app is designed for offline use after install.
-- The breed model is loaded from the Android assets folder.
+- The breed model is loaded from the native app bundle.
 - The database and model assets are bundled for Android builds.
+
+## iOS build
+
+The iOS target requires macOS and Xcode. Install dependencies, download the latest model artifact, and sync with:
+
+npm run ios:sync
+
+Open `ios/App/App.xcodeproj` in Xcode to configure the Apple development team and signing. The GitHub Actions workflow requires `APPLE_TEAM_ID`, `IOS_DISTRIBUTION_CERTIFICATE_BASE64`, `IOS_DISTRIBUTION_CERTIFICATE_PASSWORD`, `IOS_PROVISIONING_PROFILE_BASE64`, and `IOS_PROVISIONING_PROFILE_NAME` secrets.
